@@ -1,0 +1,7 @@
+[Desktop Entry]
+Version=1.0
+Name=Robot App
+Exec=/home/pi/start.sh
+Type=Application
+Icon=/home/pi/robot/Resources/robo.png
+StartupNotify=true

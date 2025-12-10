@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=OMNIS Robot
+Comment=Face recognition & voice assistant
+Exec=/home/pi/OMNIS/run_omnis.sh
+Icon=microphone
+Terminal=true
+Categories=Utility;
+X-GNOME-Autostart-enabled=false

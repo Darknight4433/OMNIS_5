@@ -1,0 +1,7 @@
+[Desktop Entry]
+Version=1.0
+Name=Trainer Application
+Exec=/home/pi/robot/scripts/train.sh
+Type=Application
+Icon=/home/pi/robot/Resources/robo.png
+StartupNotify=true

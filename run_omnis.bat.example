@@ -1,0 +1,28 @@
+@echo off
+REM OMNIS Robot - Windows Run Script
+REM This script starts OMNIS with proper environment settings
+
+echo ========================================
+echo Starting OMNIS Robot Assistant
+echo ========================================
+echo.
+
+REM Optional: Set environment variables here if not using secrets_local.py
+REM set GEMINI_KEY=your-api-key-here
+
+REM Optional: Enable debug mode
+REM set OMNIS_DEBUG=1
+
+REM Optional: Adjust Gemini response settings
+REM set GEMINI_MAX_TOKENS=200
+REM set GEMINI_TEMPERATURE=0.6
+
+REM Optional: Set face recognition tolerance (lower = stricter)
+REM set FACE_MATCH_TOLERANCE=0.55
+
+echo Starting main program...
+python main.py
+
+echo.
+echo OMNIS has stopped.
+pause
