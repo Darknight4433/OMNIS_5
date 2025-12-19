@@ -66,7 +66,7 @@ def get_chat_response(payload: str):
             pass
 
         model = genai.GenerativeModel(
-            'gemini-2.5-flash',
+            'gemini-1.5-flash',
             system_instruction=("You are OMNIS, a helpful school assistant robot. "
                                 "Keep answers brief and concise. "
                                 "Be friendly and to the point."),
