@@ -2,6 +2,9 @@ import os
 import google.generativeai as genai
 import time
 
+# Fix for gRPC fork/poll error on Raspberry Pi
+os.environ["GRPC_POLL_STRATEGY"] = "poll"
+
 # Allow a local, untracked secrets file on devices (e.g., Raspberry Pi).
 # The file `secrets_local.py` should define `GEMINI_KEY = 'your-key'`.
 def _ensure_api_key():
