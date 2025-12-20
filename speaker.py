@@ -37,7 +37,7 @@ class GTTSThread(threading.Thread):
                     tts.save(filename)
 
                     # 2. Play Audio via System Default
-                    # This uses the device set in /etc/asound.conf or the OS default
+                    # This now follows the Card 1 settings you made in /etc/asound.conf
                     os.system(f"mpg321 -q {filename}")
                     
                     # Cleanup
