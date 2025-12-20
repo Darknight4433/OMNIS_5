@@ -36,9 +36,9 @@ class GTTSThread(threading.Thread):
                     tts = gTTS(text=text_to_speak, lang='en', tld='com')
                     tts.save(filename)
 
-                    # 2. Play Audio via System Default
-                    # This now follows the Card 1 settings you made in /etc/asound.conf
-                    os.system(f"mpg321 -q {filename}")
+                    # 2. Play Audio via Card 1 (HDMI/Working Port)
+                    # We use hw:1,0 as confirmed by your speaker-test
+                    os.system(f"mpg321 -a hw:1,0 -q {filename}")
                     
                     # Cleanup
                     if os.path.exists(filename):
