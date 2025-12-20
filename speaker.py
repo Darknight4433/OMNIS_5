@@ -37,8 +37,14 @@ class GTTSThread(threading.Thread):
                     tts.save(filename)
 
                     # 2. Play Audio via Digital Pipe (Highest Reliability on Pi)
-                    # This decodes to WAV and pipes to aplay, bypassing libao locks
-                    os.system(f"mpg321 -w - {filename} | aplay -D plughw:1,0 -q")
+                    # Use mpg123 with alsa driver for better device control
+                    # We use -o alsa to force ALSA instead of libao
+                    cmd = f"mpg123 -q -o alsa --device hw:1,0 {filename}"
+                    exit_code = os.system(cmd)
+                    
+                    if exit_code != 0:
+                        # Fallback to the original pipe if mpg123 isn't working/custom config
+                        os.system(f"mpg321 -q -w - {filename} | aplay -D plughw:1,0 -q")
                     
                     # Cleanup
                     if os.path.exists(filename):

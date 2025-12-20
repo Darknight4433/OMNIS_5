@@ -74,19 +74,30 @@ def get_chat_response(payload: str):
         content = None
         last_err = ""
 
+        # Relaxation of safety filters for educational use
+        safety_settings = [
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+        ]
+
         for model_name in models_to_try:
             try:
                 model = genai.GenerativeModel(model_name)
                 
                 # Allow token tuning via env var for Pi or testing
                 max_tokens = int(os.environ.get('GEMINI_MAX_TOKENS', '300'))
-                temperature = float(os.environ.get('GEMINI_TEMPERATURE', '0.6'))
+                temperature = float(os.environ.get('GEMINI_TEMPERATURE', '0.7'))
 
                 # Add system instruction directly to the prompt
+                # Improved prompt to allow general knowledge
                 full_prompt = (
-                    "You are OMNIS, a helpful school assistant robot. "
-                    "Keep answers brief and concise. Be friendly. "
-                    "Ignore markdown formatting like bold or bullet points.\n\n"
+                    "You are OMNIS, a friendly and intelligent school assistant robot. "
+                    "Your primary goal is to help students and staff with their questions. "
+                    "You can answer school-specific questions and also general knowledge questions. "
+                    "Keep answers brief, concise, and engaging. Be helpful. "
+                    "Ignore markdown formatting like bold, asterisks, or bullet points.\n\n"
                     f"User: {payload}"
                 )
 
@@ -95,17 +106,24 @@ def get_chat_response(payload: str):
                     generation_config=genai.types.GenerationConfig(
                         max_output_tokens=max_tokens,
                         temperature=temperature,
-                    )
+                    ),
+                    safety_settings=safety_settings
                 )
 
                 # Try to get text content safely
                 try:
-                    content = response.text
-                except:
-                    # Fallback for blocked content
-                    if response.candidates:
+                    if hasattr(response, 'text') and response.text:
+                        content = response.text
+                except Exception as e:
+                    if os.environ.get('OMNIS_DEBUG') == '1':
+                        print(f"[DEBUG] Content blocked or error: {e}")
+                    
+                    # Fallback for blocked content - try to get whatever is there
+                    if hasattr(response, 'candidates') and response.candidates:
                         try:
-                            content = response.candidates[0].content.parts[0].text
+                            candidate = response.candidates[0]
+                            if candidate.content and candidate.content.parts:
+                                content = candidate.content.parts[0].text
                         except:
                             pass
                 
@@ -129,10 +147,16 @@ def get_chat_response(payload: str):
             }
         else:
             # Handle empty content or blocked response
+            # If we reached here, the AI failed to provide an answer.
+            # Instead of a strict 'school rules' message, let's be more helpful.
+            error_msg = "I'm sorry, I'm having trouble thinking of an answer for that right now. Could you try rephrasing your question?"
+            if "safety" in last_err.lower() or not content:
+                error_msg = "I'm not sure how to answer that. Please ask me something else, or ask about MGM school rules!"
+            
             return {
                 'choices': [{
                     'message': {
-                        'content': "I'm not sure about that. Please ask me about the school rules, or try rephrasing your question."
+                        'content': error_msg
                     }
                 }]
             }
