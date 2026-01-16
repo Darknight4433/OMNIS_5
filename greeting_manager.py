@@ -18,7 +18,8 @@ class GreetingManager:
             "Sukumaran": "sir",
             "Deva Nandan": "Deva",
             "Rakesh N K": "Rakesh Sir",
-            "Shinila": "Chinju",
+            "Shinila": "Chinnu",
+            "Gayathri": "Chinju",
         }
         
         # VIP / Special Introductions
