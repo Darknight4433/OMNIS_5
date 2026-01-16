@@ -39,12 +39,23 @@ class GTTSThread(threading.Thread):
                     # 2. Play Audio (Cross Platform)
                     # Use pygame instead of system calls for Windows compatibility
                     try:
-                        pygame.mixer.init()
+                        # Re-initialize mixer if needed
+                        if not pygame.mixer.get_init():
+                            pygame.mixer.init(frequency=22050, size=-16, channels=2, buffer=4096)
+                        
                         pygame.mixer.music.load(filename)
                         pygame.mixer.music.play()
+                        
                         while pygame.mixer.music.get_busy():
                             time.sleep(0.1)
-                        pygame.mixer.music.unload() # Release file
+                            
+                        # Use try-except for unload as it's missing in some older pygame versions
+                        try:
+                            if hasattr(pygame.mixer.music, 'unload'):
+                                pygame.mixer.music.unload()
+                        except:
+                            pass
+                            
                     except Exception as e:
                         print(f"Pygame Audio Error: {e}")
                     
