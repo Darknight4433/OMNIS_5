@@ -73,21 +73,28 @@ def get_chat_response(payload: str):
     if not API_KEYS:
         return {"choices": [{"message": {"content": "I need an API key to think."}}]}
 
-    # Updated model list based on successful diagnosis (2026-01-16)
+    # 1. Preferred models (from your diagnostic)
     models_to_try = [
-        'gemini-2.5-flash',          # Best & Newest
-        'gemini-2.0-flash',          # High speed stable
-        'gemini-2.0-flash-001',      # Specific version
-        'gemini-2.5-pro',            # High intelligence
-        'gemini-2.0-flash-exp'       # Experimental
+        'gemini-2.0-flash',
+        'gemini-2.5-flash',
+        'gemini-2.0-flash-001',
+        'gemini-1.5-flash',
     ]
     
+    # 2. Add automatic discovery (In case names change)
+    try:
+        available = [m.name.split('/')[-1] for m in genai.list_models() 
+                    if 'generateContent' in m.supported_generation_methods]
+        for m in available:
+            if m not in models_to_try:
+                models_to_try.append(m)
+    except: pass
+
     max_retries = len(API_KEYS) 
     retries = 0
     
     while retries < max_retries:
         content = None
-        last_err = ""
         should_rotate_key = False
         
         for model_name in models_to_try:
@@ -114,15 +121,16 @@ def get_chat_response(payload: str):
 
             except Exception as e:
                 err_str = str(e).lower()
-                # 429/Quota/Rate Limit: These means the KEY is exhausted. Rotate key.
-                if any(x in err_str for x in ["429", "quota", "limit", "resource", "exhausted"]):
+                # 429/Quota: Only rotate key if we hit a real quota/delay
+                if "429" in err_str or "quota" in err_str:
+                    # If the error specifically mentions the model limit is 0, 
+                    # it might just be THAT model. Try next model!
+                    if "limit: 0" in err_str:
+                        continue 
+                    
                     print(f"⚠️ Key #{current_key_index + 1} quota reached. Rotating...")
                     should_rotate_key = True
                     break 
-                
-                # 404/Permission/Auth: These usually mean the MODEL is not found or key is bad.
-                # Try next model on the same key first.
-                last_err = f"Model {model_name} failed: {e}"
                 continue
 
         if content:
@@ -135,14 +143,13 @@ def get_chat_response(payload: str):
             retries += 1
             continue
         else:
-            # If we've tried all models on this key and still no luck, try next key
-            print(f"⚠️ Key #{current_key_index + 1} could not process request. Trying next key...")
+            print(f"⚠️ Key #{current_key_index + 1} failed all models. Rotating...")
             current_key_index = (current_key_index + 1) % len(API_KEYS)
             configure_next_key()
             retries += 1
             continue
 
-    return {'choices': [{'message': {'content': "My daily brain power is exhausted. Please check my API keys."}}]}
+    return {'choices': [{'message': {'content': "My daily brain power is exhausted. Please check my API keys in a few minutes."}}]}
 
 if __name__ == '__main__':
     # Test
