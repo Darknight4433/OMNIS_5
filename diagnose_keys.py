@@ -28,7 +28,7 @@ def diagnose():
                 if count > 5: break # Only show first 5
             
             # 2. Try a test generation
-            model = genai.GenerativeModel('gemini-pro') # Trying the most universal name
+            model = genai.GenerativeModel('gemini-2.0-flash') 
             response = model.generate_content("Say 'OK'")
             print(f"✅ Status: SUCCESS")
         except Exception as e:

@@ -73,11 +73,12 @@ def get_chat_response(payload: str):
     if not API_KEYS:
         return {"choices": [{"message": {"content": "I need an API key to think."}}]}
 
-    # Model list: prioritize stable, widely available models
+    # Updated model list based on successful diagnosis (2026-01-16)
     models_to_try = [
-        'gemini-2.0-flash',          # New stable flash
-        'gemini-1.5-flash',          # Reliable fallback
-        'gemini-1.5-pro',            # High-capability fallback
+        'gemini-2.5-flash',          # Best & Newest
+        'gemini-2.0-flash',          # High speed stable
+        'gemini-2.0-flash-001',      # Specific version
+        'gemini-2.5-pro',            # High intelligence
         'gemini-2.0-flash-exp'       # Experimental
     ]
     
