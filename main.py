@@ -9,6 +9,7 @@ from speaker import speak, is_speaking
 from sr_class import SpeechRecognitionThread
 import shared_state
 from greeting_manager import GreetingManager
+from head_controller import init_head
 
 # Adapter for SR thread
 class SpeakerAdapter:
@@ -77,6 +78,9 @@ def main():
     except Exception as e:
         print(f"Error starting voice: {e}")
 
+    # Initialize Head Controller
+    head = init_head()
+
     print("Starting OMNIS Main Loop...")
     
     try:
@@ -129,6 +133,17 @@ def main():
                         
                 except Exception as e:
                     print(f"Face Rec Error: {e}")
+
+            # --- HEAD TRACKING ---
+            if head:
+                head.set_speaking(is_speaking())
+                if current_faces:
+                    # Target the first face detected
+                    y1, x2, y2, x1 = current_faces[0]
+                    cx = (x1 + x2) / 2
+                    cy = (y1 + y2) / 2
+                    # Note: We pass resized coordinates (relative to RESIZE_FACTOR frame)
+                    head.track_face(cx, cy)
             
             # --- DRAWING PIPELINE ---
             try:

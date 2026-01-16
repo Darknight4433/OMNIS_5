@@ -8,3 +8,4 @@ pygame>=2.5.0
 cvzone>=1.6.0
 pyaudio>=0.2.13
 google-generativeai>=0.3.0
+pigpio
