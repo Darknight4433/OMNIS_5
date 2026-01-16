@@ -17,10 +17,20 @@ def diagnose():
         print(f"--- Key #{i+1} ---")
         try:
             genai.configure(api_key=key)
-            model = genai.GenerativeModel(model_name)
-            response = model.generate_content("Say 'Key Working'")
+            
+            # 1. List valid models for this key
+            print("📋 Available Models:")
+            count = 0
+            for m in genai.list_models():
+                if 'generateContent' in m.supported_generation_methods:
+                    print(f"  - {m.name}")
+                    count += 1
+                if count > 5: break # Only show first 5
+            
+            # 2. Try a test generation
+            model = genai.GenerativeModel('gemini-pro') # Trying the most universal name
+            response = model.generate_content("Say 'OK'")
             print(f"✅ Status: SUCCESS")
-            print(f"💬 Response: {response.text.strip()}")
         except Exception as e:
             print(f"❌ Status: FAILED")
             print(f"⚠️ Error: {e}")
