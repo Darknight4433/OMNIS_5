@@ -19,7 +19,10 @@ TILT_RANGE = (1200, 1800) # Restricted range (approx center +/- 30 deg)
 CENTER_PWM = 1500
 
 # Smoothing
-SMOOTHING = 0.15 # 0 to 1. Closer to 0 is smoother/slower
+SMOOTHING = 0.06 # Very slow and steady (was 0.15)
+DEADZONE = 0.15  # 15% center zone where head stays still (logical)
+PAN_SENSITIVITY = 40 # Reduced from 80
+TILT_SENSITIVITY = 30 # Reduced from 60
 
 class HeadController(threading.Thread):
     def __init__(self):
@@ -52,22 +55,23 @@ class HeadController(threading.Thread):
     def track_face(self, face_center_x, face_center_y, frame_w=160, frame_h=120):
         """
         Adjust targets based on face position in frame.
-        Default 160x120 assumes the 0.25 resized frame from main.py
         """
         self.last_face_time = time.time()
         
         # Calculate offsets from center (-1 to 1)
-        # Note: Inverted logic for pan/tilt based on standard mounting
         dx = (face_center_x - (frame_w / 2)) / (frame_w / 2)
         dy = (face_center_y - (frame_h / 2)) / (frame_h / 2)
 
-        # Pan move (Left/Right)
-        pan_step = dx * 80 # Sensitive adjustment
-        self.target_pan -= pan_step
+        # Only move if outside the DEADZONE (Logical thinking)
+        if abs(dx) > DEADZONE:
+            # Respectfully slow pan move
+            pan_step = dx * PAN_SENSITIVITY
+            self.target_pan -= pan_step
         
-        # Tilt move (Up/Down) - dy is positive when face is lower than center
-        tilt_step = dy * -60 
-        self.target_tilt -= tilt_step
+        if abs(dy) > DEADZONE:
+            # Respectfully slow tilt move
+            tilt_step = dy * -TILT_SENSITIVITY 
+            self.target_tilt -= tilt_step
 
         # Apply Hard Limits
         self.target_pan = max(PAN_RANGE[0], min(PAN_RANGE[1], self.target_pan))
@@ -80,16 +84,17 @@ class HeadController(threading.Thread):
             
             # 1. HANDLE GESTURES (When speaking)
             if self.is_speaking:
-                # Add tiny random "breathing" movements
-                self.target_pan += random.uniform(-5, 5)
-                self.target_tilt += random.uniform(-3, 3)
+                # Subtly "look" around while explaining (Logical gestures)
+                if int(now * 2) % 10 == 0:
+                    self.target_pan += random.uniform(-15, 15)
+                    self.target_tilt += random.uniform(-10, 10)
             
-            # 2. HANDLE IDLE SCANNING (No face for 5 seconds)
-            elif now - self.last_face_time > 5.0:
-                # Slow scan
-                if int(now) % 10 == 0:
-                    self.target_pan = random.uniform(PAN_RANGE[0] + 300, PAN_RANGE[1] - 300)
-                    self.target_tilt = random.uniform(TILT_PWM_CENTER - 100, TILT_PWM_CENTER + 100)
+            # 2. HANDLE IDLE SCANNING (No face for 10 seconds)
+            elif now - self.last_face_time > 10.0:
+                # Very slow, calm room scanning
+                if int(now) % 15 == 0:
+                    self.target_pan = random.uniform(PAN_RANGE[0] + 400, PAN_RANGE[1] - 400)
+                    self.target_tilt = 1500 # Look straight ahead
 
             # 3. INTERPOLATE (Smooth movement)
             self.current_pan += (self.target_pan - self.current_pan) * SMOOTHING
