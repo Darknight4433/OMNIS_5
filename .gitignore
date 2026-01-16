@@ -8,7 +8,7 @@ encodings.pickle
 __pycache__/
 
 # Ignore test files
-test_*.py
+# (Removing test_*.py so it is pushed to Pi)
 diagnose_log.txt
 
 # Ignore temporary audio files
