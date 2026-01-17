@@ -11,12 +11,18 @@ _global_speaker_active = False
 def is_speaking():
     return _global_speaker_active
 
+import shared_state
+
 def speak_offline(text):
     """Fast offline TTS using espeak-ng"""
     try:
+        # Get settings from shared_state
+        v = getattr(shared_state, 'current_voice_settings', {"pitch": 50, "speed": 175})
+        pitch = v.get("pitch", 50)
+        speed = v.get("speed", 160)
+        
         # Use espeak-ng for instant feedback
-        # -s 150 (speed), -p 50 (pitch), -v en (voice)
-        os.system(f"espeak-ng -s 160 -p 40 '{text}' > /dev/null 2>&1")
+        os.system(f"espeak-ng -s {speed} -p {pitch} '{text}' > /dev/null 2>&1")
         return True
     except:
         return False
@@ -41,6 +47,13 @@ class GTTSThread(threading.Thread):
             if text_to_speak:
                 _global_speaker_active = True
                 try:
+                    # Global stop flag
+                    global _stop_requested
+                    
+                    # Fetch voice settings
+                    v = getattr(shared_state, 'current_voice_settings', {"accent": "com"})
+                    tld = v.get("accent", "com")
+
                     # SPEED OPTIMIZATION: Use offline TTS for short common phrases
                     # This makes greetings and basic ACKs instant.
                     short_phrases = ["yes?", "ok.", "hello!", "hi.", "welcome."]
@@ -53,7 +66,7 @@ class GTTSThread(threading.Thread):
 
                     # 1. Generate Audio file (High Quality for AI answers)
                     filename = f"speak_{uuid.uuid4()}.mp3"
-                    tts = gTTS(text=text_to_speak, lang='en', tld='com')
+                    tts = gTTS(text=text_to_speak, lang='en', tld=tld)
                     tts.save(filename)
 
                     # 2. Play Audio (Cross Platform)

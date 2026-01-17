@@ -15,3 +15,5 @@ awaiting_encoding: Optional[object] = None
 awaiting_face_image: Optional[object] = None
 detected_people = [] # Live list of people currently in frame
 active_user: str = "Unknown" # The primary person being interacted with
+current_personality: str = "default" # Current persona (e.g., 'Shakespeare', 'NASA Scientist')
+current_voice_settings: dict = {"pitch": 50, "speed": 175, "accent": "com"} # Added for voice modulation

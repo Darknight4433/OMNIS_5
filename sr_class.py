@@ -231,6 +231,40 @@ class SpeechRecognitionThread(threading.Thread):
                                 self.conversation_active = True
                                 continue
 
+                            # 4. PERSONALITY / EXPERT MODE
+                            if any(x in question for x in ["act like", "be a", "expert mode", "become a"]):
+                                # Detect persona
+                                persona = "default"
+                                voice_settings = {"pitch": 50, "speed": 175, "accent": "com"}
+
+                                if "shakespeare" in question:
+                                    persona = "William Shakespeare"
+                                    voice_settings = {"pitch": 45, "speed": 150, "accent": "co.uk"}
+                                elif "scientist" in question or "nasa" in question:
+                                    persona = "NASA Scientist"
+                                    voice_settings = {"pitch": 55, "speed": 180, "accent": "com"}
+                                elif "giant" in question or "deep" in question:
+                                    persona = "a friendly Giant"
+                                    voice_settings = {"pitch": 25, "speed": 130, "accent": "com.au"}
+                                elif "robot" in question or "monotone" in question:
+                                    persona = "a hyper-logical robot"
+                                    voice_settings = {"pitch": 50, "speed": 220, "accent": "com"}
+                                elif "child" in question or "baby" in question:
+                                    persona = "a playful child"
+                                    voice_settings = {"pitch": 80, "speed": 200, "accent": "com"}
+                                
+                                if persona != "default":
+                                    shared_state.current_personality = persona
+                                    shared_state.current_voice_settings = voice_settings
+                                    self.speaker.speak(f"Initializing {persona} mode. I am ready.")
+                                    continue
+                            
+                            if any(x in question for x in ["be yourself", "reset personality", "normal mode"]):
+                                shared_state.current_personality = "default"
+                                shared_state.current_voice_settings = {"pitch": 50, "speed": 160, "accent": "com"}
+                                self.speaker.speak("Resetting to default OMNIS personality. How can I help you?")
+                                continue
+
 
                             if has_wake_word:
                                print("\n✅ WAKE WORD DETECTED!\n")

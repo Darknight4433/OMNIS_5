@@ -1,5 +1,6 @@
 import os
 import google.generativeai as genai
+import shared_state
 import time
 
 # Fix for gRPC fork/poll error on Raspberry Pi
@@ -96,9 +97,14 @@ def get_chat_response(payload: str, user_id: str = "Unknown"):
         for k, v in facts.items():
             facts_context += f"- {k}: {v}\n"
     
-    # Enhanced System Prompt with memory
+    # Enhanced System Prompt with memory and personality
+    personality = getattr(shared_state, 'current_personality', 'default')
+    persona_prompt = ""
+    if personality != "default":
+        persona_prompt = f" Current Personality/Role: {personality}. Adopt this persona's tone, vocabulary, and style in your response."
+
     enhanced_system_prompt = (
-        f"{SYSTEM_PROMPT}\n"
+        f"{SYSTEM_PROMPT}{persona_prompt}\n"
         f"{facts_context}\n"
         f"You are talking to {user_id}."
     )
