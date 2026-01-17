@@ -39,14 +39,14 @@ def configure_next_key() -> bool:
     global current_key_index
     
     if not API_KEYS:
-        print("❌ No API Keys available!")
+        print("ERROR: No API Keys available!")
         return False
         
     attempts = 0
     while attempts < len(API_KEYS):
         key = API_KEYS[current_key_index]
         try:
-            print(f"🔑 Switching to API Key #{current_key_index + 1}...")
+            print(f"KEY: Switching to API Key #{current_key_index + 1}...")
             genai.configure(api_key=key)
             return True
         except Exception as e:
@@ -61,17 +61,47 @@ def configure_next_key() -> bool:
 # Initial configuration
 if API_KEYS:
     configure_next_key()
-    print(f"✅ Gemini Configured with {len(API_KEYS)} keys available.")
+    print(f"SUCCESS: Gemini Configured with {len(API_KEYS)} keys available.")
 else:
-    print("❌ No Gemini Keys found. AI response will fail.")
+    print("ERROR: No Gemini Keys found. AI response will fail.")
 
 
-def get_chat_response(payload: str):
-    """Get AI response using Google Gemini with Key Rotation"""
+from memory_manager import MemoryManager
+
+# Initialize Memory Manager
+memory = MemoryManager()
+
+def get_chat_response(payload: str, user_id: str = "Unknown"):
+    """Get AI response using Google Gemini with Key Rotation and Memory"""
     global current_key_index
     
     if not API_KEYS:
         return {"choices": [{"message": {"content": "I need an API key to think."}}]}
+
+    # --- MEMORY INTEGRATION ---
+    history = memory.get_recent_history(user_id)
+    facts = memory.get_user_facts(user_id)
+    
+    # Format history for prompt
+    history_context = ""
+    if history:
+        history_context = "\nRecent Conversation:\n"
+        for u, a in history:
+            history_context += f"User: {u}\nAI: {a}\n"
+    
+    # Format facts for prompt
+    facts_context = ""
+    if facts:
+        facts_context = "\nKnown facts about this user:\n"
+        for k, v in facts.items():
+            facts_context += f"- {k}: {v}\n"
+    
+    # Enhanced System Prompt with memory
+    enhanced_system_prompt = (
+        f"{SYSTEM_PROMPT}\n"
+        f"{facts_context}\n"
+        f"You are talking to {user_id}."
+    )
 
     # 1. Preferred models (from your diagnostic)
     models_to_try = [
@@ -100,7 +130,8 @@ def get_chat_response(payload: str):
         for model_name in models_to_try:
             try:
                 model = genai.GenerativeModel(model_name)
-                full_prompt = f"{SYSTEM_PROMPT}\n\nUser: {payload}"
+                # Include history in the prompt
+                full_prompt = f"{enhanced_system_prompt}\n{history_context}\nUser: {payload}"
 
                 response = model.generate_content(
                     full_prompt,
@@ -121,20 +152,30 @@ def get_chat_response(payload: str):
 
             except Exception as e:
                 err_str = str(e).lower()
-                # 429/Quota: Only rotate key if we hit a real quota/delay
                 if "429" in err_str or "quota" in err_str:
-                    # If the error specifically mentions the model limit is 0, 
-                    # it might just be THAT model. Try next model!
                     if "limit: 0" in err_str:
                         continue 
-                    
-                    print(f"⚠️ Key #{current_key_index + 1} quota reached. Rotating...")
+                    print(f"WARNING: Key #{current_key_index + 1} quota reached. Rotating...")
                     should_rotate_key = True
                     break 
                 continue
 
         if content:
             clean_text = content.replace('*', '').replace('#', '').replace('**', '')
+            
+            # --- SAVE TO MEMORY ---
+            memory.add_conversation(user_id, payload, clean_text)
+            
+            # Simple heuristic to extract facts (Heuristic: "My favorite X is Y")
+            if "my favorite" in payload.lower() and "is" in payload.lower():
+                try:
+                    parts = payload.lower().split("my favorite")[1].split("is")
+                    key = parts[0].strip()
+                    val = parts[1].strip().rstrip(".!?")
+                    memory.store_fact(user_id, key, val)
+                    print(f"INFO: Learned a fact: {key} = {val}")
+                except: pass
+
             return {'choices': [{'message': {'content': clean_text}}]}
             
         if should_rotate_key:
@@ -143,11 +184,14 @@ def get_chat_response(payload: str):
             retries += 1
             continue
         else:
-            print(f"⚠️ Key #{current_key_index + 1} failed all models. Rotating...")
+            print(f"WARNING: Key #{current_key_index + 1} failed all models. Rotating...")
             current_key_index = (current_key_index + 1) % len(API_KEYS)
             configure_next_key()
             retries += 1
             continue
+
+    return {'choices': [{'message': {'content': "My daily brain power is exhausted. Please check my API keys in a few minutes."}}]}
+
 
     return {'choices': [{'message': {'content': "My daily brain power is exhausted. Please check my API keys in a few minutes."}}]}
 

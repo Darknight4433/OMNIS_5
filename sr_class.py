@@ -246,10 +246,11 @@ class SpeechRecognitionThread(threading.Thread):
                                     self.speaker.speak(school_ans)
                                 else:
                                     print("🤖 Getting AI response...")
-                                    resp = get_chat_response(question)
+                                    active_user = getattr(shared_state, 'active_user', 'Unknown')
+                                    resp = get_chat_response(question, user_id=active_user)
                                     if isinstance(resp, dict) and 'choices' in resp:
                                         answer = resp['choices'][0]['message']['content']
-                                        print(f"💬 AI Response: {answer}\n")
+                                        print(f"💬 AI Response to {active_user}: {answer}\n")
                                         self.speaker.speak(answer)
                                     else:
                                         self.speaker.speak("Sorry, I couldn't process that.")

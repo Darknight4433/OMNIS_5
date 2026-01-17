@@ -10,11 +10,17 @@ from sr_class import SpeechRecognitionThread
 import shared_state
 from greeting_manager import GreetingManager
 from head_controller import init_head
+from gesture_manager import GestureManager
 
 # Adapter for SR thread
 class SpeakerAdapter:
     def speak(self, text):
         speak(text)
+    def stop(self):
+        # Implementation to stop current playback if possible
+        # For now, we can just signal the speaker module
+        from speaker import stop_speech
+        stop_speech()
 
 speaker_adapter = SpeakerAdapter()
 
@@ -81,6 +87,9 @@ def main():
     # Initialize Head Controller
     head = init_head()
 
+    # Initialize Gesture Manager
+    gesture_man = GestureManager()
+
     print("Starting OMNIS Main Loop...")
     
     try:
@@ -126,13 +135,28 @@ def main():
                         current_ids = new_ids
                         # Update shared state for Voice Commands ("Who is here?")
                         shared_state.detected_people = current_ids
+                        # Primary user (first face) for memory context
+                        shared_state.active_user = current_ids[0] if current_ids else "Unknown"
                     else:
                         current_faces = []
                         current_ids = []
                         shared_state.detected_people = []
+                        shared_state.active_user = "Unknown"
                         
                 except Exception as e:
                     print(f"Face Rec Error: {e}")
+
+            # --- GESTURE PIPELINE ---
+            if frame_count % 3 == 0: # Check gestures more frequently than faces
+                rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                gesture = gesture_man.detect_gesture(rgb_img)
+                if gesture == "STOP" and is_speaking():
+                    print("✋ Gesture STOP detected!")
+                    from speaker import stop_speech
+                    stop_speech()
+                elif gesture == "THUMBS_UP" and not is_speaking():
+                    # Optional: Quick interaction
+                    pass
 
             # --- HEAD TRACKING ---
             if head:

@@ -48,8 +48,8 @@ class GTTSThread(threading.Thread):
                     
                     if len(text_to_speak) < 25 or any(p in text_lower for p in short_phrases):
                         if speak_offline(text_to_speak):
-                             _global_speaker_active = False # Reset immediately
-                             continue
+                             _global_speaker_active = False # Reset immediately if offline speak handled it
+                             continue # Skip the rest of the online TTS process
 
                     # 1. Generate Audio file (High Quality for AI answers)
                     filename = f"speak_{uuid.uuid4()}.mp3"
@@ -92,9 +92,13 @@ class GTTSThread(threading.Thread):
                             pygame.mixer.music.load(filename)
                             pygame.mixer.music.play()
                             
-                            while pygame.mixer.music.get_busy():
+                            while pygame.mixer.music.get_busy() and not _stop_requested:
                                 time.sleep(0.1)
-                                
+                            
+                            if _stop_requested:
+                                pygame.mixer.music.stop()
+                                print("Speaker: Playback interrupted.")
+
                             try:
                                 if hasattr(pygame.mixer.music, 'unload'):
                                     pygame.mixer.music.unload()
@@ -113,6 +117,7 @@ class GTTSThread(threading.Thread):
                 except Exception as e:
                     print(f"Speaker Error: {e}")
                 finally:
+                    _stop_requested = False # Reset stop request after processing
                     _global_speaker_active = False
             else:
                 time.sleep(0.1)
@@ -135,7 +140,19 @@ def init_speaker_thread():
         _global_speaker_thread.start()
     return _global_speaker_thread
 
+def stop_speech():
+    """Request speaking to stop immediately."""
+    global _stop_requested
+    _stop_requested = True
+    print("Speaker: Stop requested.")
+
 def speak(text):
     """Global speak function called by main.py"""
+    global _stop_requested
+    _stop_requested = False # Reset stop request when a new speech is initiated
     s = init_speaker_thread()
     s.speak(text)
+
+def is_speaking():
+    """Global check if anything is being spoken."""
+    return any(t.name == "GTTSThread" and t.is_alive() for t in threading.enumerate())
