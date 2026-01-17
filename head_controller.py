@@ -3,6 +3,7 @@ import os
 import time
 import threading
 import random
+import math
 try:
     import pigpio
 except ImportError:
@@ -79,32 +80,44 @@ class HeadController(threading.Thread):
 
     def run(self):
         print("🤖 HeadController: Started movement loop.")
+        start_time = time.time()
+        
         while self.running:
             now = time.time()
+            elapsed = now - start_time
             
-            # 1. HANDLE GESTURES (When speaking)
+            # 1. BREATHING EFFECT (Continuous subtle oscillation)
+            # A human-like breathing rhythm: slightly erratic but steady
+            breathing_tilt = math.sin(elapsed * 0.8) * 5 # ~4 second cycle, 5 PWM tilt shift
+            breathing_pan = math.cos(elapsed * 0.3) * 3  # Wider, slower cycle for pan
+            
+            # 2. HANDLE GESTURES (When speaking)
             if self.is_speaking:
                 # Subtly "look" around while explaining (Logical gestures)
                 if int(now * 2) % 10 == 0:
                     self.target_pan += random.uniform(-15, 15)
                     self.target_tilt += random.uniform(-10, 10)
             
-            # 2. HANDLE IDLE SCANNING (No face for 10 seconds)
+            # 3. HANDLE IDLE SCANNING (No face for 10 seconds)
             elif now - self.last_face_time > 10.0:
                 # Very slow, calm room scanning
                 if int(now) % 15 == 0:
                     self.target_pan = random.uniform(PAN_RANGE[0] + 400, PAN_RANGE[1] - 400)
                     self.target_tilt = 1500 # Look straight ahead
-
-            # 3. INTERPOLATE (Smooth movement)
+            
+            # 4. INTERPOLATE (Smooth movement)
             self.current_pan += (self.target_pan - self.current_pan) * SMOOTHING
             self.current_tilt += (self.target_tilt - self.current_tilt) * SMOOTHING
 
-            # 4. EXECUTE HARDWARE MOVE
+            # Apply breathing on top of current position
+            final_pan = self.current_pan + breathing_pan
+            final_tilt = self.current_tilt + breathing_tilt
+
+            # 5. EXECUTE HARDWARE MOVE
             if self.pi:
                 try:
-                    self.pi.set_servo_pulsewidth(PAN_PIN, int(self.current_pan))
-                    self.pi.set_servo_pulsewidth(TILT_PIN, int(self.current_tilt))
+                    self.pi.set_servo_pulsewidth(PAN_PIN, int(final_pan))
+                    self.pi.set_servo_pulsewidth(TILT_PIN, int(final_tilt))
                 except:
                     pass
             

@@ -280,6 +280,24 @@ class SpeechRecognitionThread(threading.Thread):
                                     self.speaker.speak(school_ans)
                                 else:
                                     print("🤖 Getting AI response...")
+                                    
+                                    # --- THINKING FILLERS ---
+                                    fillers = [
+                                        "Hmm, let me think about that...",
+                                        "Checking my memory banks...",
+                                        "That's an interesting question. Let me see...",
+                                        "One moment, I am searching for an answer.",
+                                        "Let me check my school knowledge for you.",
+                                        "Umm, interesting..."
+                                    ]
+                                    personality = getattr(shared_state, 'current_personality', 'default')
+                                    if personality == "William Shakespeare":
+                                         fillers = ["Let me consult the stars...", "A wondrous inquiry...", "Hark, let me ponder upon this..."]
+                                    elif personality == "NASA Scientist":
+                                         fillers = ["Let me process that through my calculations...", "Running data analysis...", "Analyzing trajectory..."]
+                                    
+                                    self.speaker.speak(random.choice(fillers))
+                                    
                                     active_user = getattr(shared_state, 'active_user', 'Unknown')
                                     resp = get_chat_response(question, user_id=active_user)
                                     if isinstance(resp, dict) and 'choices' in resp:

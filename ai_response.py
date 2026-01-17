@@ -2,6 +2,7 @@ import os
 import google.generativeai as genai
 import shared_state
 import time
+import datetime
 
 # Fix for gRPC fork/poll error on Raspberry Pi
 os.environ["GRPC_POLL_STRATEGY"] = "poll"
@@ -97,14 +98,19 @@ def get_chat_response(payload: str, user_id: str = "Unknown"):
         for k, v in facts.items():
             facts_context += f"- {k}: {v}\n"
     
-    # Enhanced System Prompt with memory and personality
+    # Enhanced System Prompt with memory, personality, and TIME awareness
     personality = getattr(shared_state, 'current_personality', 'default')
     persona_prompt = ""
     if personality != "default":
         persona_prompt = f" Current Personality/Role: {personality}. Adopt this persona's tone, vocabulary, and style in your response."
 
+    now = datetime.datetime.now()
+    time_str = now.strftime("%I:%M %p")
+    day_str = now.strftime("%A, %B %d, %Y")
+    time_context = f" Current Time: {time_str}. Current Date: {day_str}."
+
     enhanced_system_prompt = (
-        f"{SYSTEM_PROMPT}{persona_prompt}\n"
+        f"{SYSTEM_PROMPT}{persona_prompt}{time_context}\n"
         f"{facts_context}\n"
         f"You are talking to {user_id}."
     )

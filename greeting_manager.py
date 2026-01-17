@@ -1,7 +1,22 @@
 import time
 import random
+import datetime
 
 class GreetingManager:
+    def _get_time_of_day_greeting(self):
+        """Returns Morning/Afternoon/Evening based on current time."""
+        hour = datetime.datetime.now().hour
+        if 5 <= hour < 12:
+            return "Good morning"
+        elif 12 <= hour < 17:
+            return "Good afternoon"
+        elif 17 <= hour < 21:
+            return "Good evening"
+        elif 21 <= hour < 24:
+            return "Ooh, staying up late? Good evening"
+        else:
+            return "Hello"
+
     def __init__(self):
         # Track when we last saw/greeted someone
         # Store: {name: timestamp}
@@ -52,12 +67,17 @@ class GreetingManager:
         last = self.last_greeted.get(name, 0)
         self.last_greeted[name] = now  # Update timestamp
         
+        time_greeting = self._get_time_of_day_greeting()
+        
         # Scenario 1: New person or Long time no see (Standard Formal Greeting)
         if last == 0 or (now - last) > self.LONG_ABSENCE_THRESHOLD:
             # Check for VIP intro first
             if name in self.special_intros:
                 return self.special_intros[name]
-            return f"Hello {name}! Welcome to MGM Model School."
+            
+            if name == "Unknown":
+                return f"{time_greeting}! Welcome to MGM Model School."
+            return f"{time_greeting} {name}! Welcome to MGM Model School."
 
         # Scenario 2: Casual re-encounter (Short greeting)
         # Condition: Seen relatively recently (between 1 min and 1 hour)
@@ -89,4 +109,5 @@ class GreetingManager:
         """Greeting for unknown people."""
         now = time.time()
         self.last_greeted["Unknown"] = now
-        return "Hello! Welcome to M G M Model School."
+        tg = self._get_time_of_day_greeting()
+        return f"{tg}! Welcome to MGM Model School."
