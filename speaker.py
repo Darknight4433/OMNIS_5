@@ -57,19 +57,27 @@ class GTTSThread(threading.Thread):
                     tts.save(filename)
 
                     # 2. Play Audio (Cross Platform)
-                    # For Raspberry Pi USB speakers (Card 1)
-                    if os.path.exists('/proc/asound/card1'):
-                         os.environ['AUDIODEV'] = 'hw:1,0'
-                         os.environ['SDL_PATH_ALSA_DEVICE'] = 'hw:1,0'
-                         os.environ['SDL_ALSA_DEVICE'] = 'hw:1,0'
+                    # Load configuration if it exists
+                    try:
+                        import audio_config
+                        card_index = getattr(audio_config, 'SPEAKER_CARD_INDEX', 1)
+                    except ImportError:
+                        card_index = 1
+
+                    device_str = f"hw:{card_index},0"
+                    
+                    # For Raspberry Pi USB speakers
+                    if os.name != 'nt':
+                         os.environ['AUDIODEV'] = device_str
+                         os.environ['SDL_PATH_ALSA_DEVICE'] = device_str
+                         os.environ['SDL_ALSA_DEVICE'] = device_str
 
                     # Try mpg123 first on Linux if available (more reliable for MP3 on Pi)
                     played = False
                     if os.name != 'nt':
                         try:
                             # Try to use mpg123 which handles card selection well
-                            device = "hw:1,0" if os.path.exists('/proc/asound/card1') else "default"
-                            res = os.system(f"mpg123 -q -a {device} {filename} > /dev/null 2>&1")
+                            res = os.system(f"mpg123 -q -a {device_str} {filename} > /dev/null 2>&1")
                             if res == 0:
                                 played = True
                         except:
