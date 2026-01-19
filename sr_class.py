@@ -46,9 +46,9 @@ class SpeechRecognitionThread(threading.Thread):
         # SUPER SENSITIVITY SETTINGS
         self.recognizer.energy_threshold = 300  # Start lower (sensitive)
         self.recognizer.dynamic_energy_threshold = True
-        self.recognizer.pause_threshold = 0.5  # Stop listening faster (was 0.8)
-        self.recognizer.phrase_threshold = 0.3
-        self.recognizer.non_speaking_duration = 0.3 # faster turnaround
+        self.recognizer.pause_threshold = 0.4  # Stop listening faster (was 0.5)
+        self.recognizer.phrase_threshold = 0.2 # Faster phrase detection (was 0.3)
+        self.recognizer.non_speaking_duration = 0.2 # faster turnaround (was 0.3)
 
     def _open_microphone(self) -> bool:
         # Debug: List all microphones
