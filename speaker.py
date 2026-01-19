@@ -6,6 +6,11 @@ import pygame
 import asyncio
 import edge_tts
 from gtts import gTTS
+try:
+    from cartesia import Cartesia
+    HAS_CARTESIA = True
+except ImportError:
+    HAS_CARTESIA = False
 
 # Shared state to check if speaker is active
 _global_speaker_active = False
@@ -26,6 +31,16 @@ VOICE_MAP = {
     "a playful child": "en-US-AnaNeural"
 }
 
+# Cartesia Voice IDs (Sonic 2.0)
+CARTESIA_VOICE_MAP = {
+    "default": "3b554273-4299-48b9-9aaf-eefd438e3941", # Indian Lady
+    "William Shakespeare": "71a7ad14-091c-4e8e-a314-022ece01c121", # British Reading Lady
+    "NASA Scientist": "d46abd1d-2d02-43e8-819f-51fb652c1c61", # Newsman
+    "a friendly Giant": "6a16c1f4-462b-44de-998d-ccdaa4125a0a", # Friendly Brazilian (Deep)
+    "a hyper-logical robot": "79f8b5fb-2cc8-479a-80df-29f7a7cf1a3e", # Nonfiction Man
+    "a playful child": "2ee87190-8f84-4925-97da-e52547f9462c" # Child
+}
+
 def get_voice():
     persona = getattr(shared_state, 'current_personality', 'default')
     return VOICE_MAP.get(persona, VOICE_MAP["default"])
@@ -34,6 +49,42 @@ async def generate_edge_tts(text, filename):
     voice = get_voice()
     communicate = edge_tts.Communicate(text, voice)
     await communicate.save(filename)
+
+def generate_cartesia_tts(text, filename):
+    if not HAS_CARTESIA:
+        return False
+    try:
+        # Check for key in secrets_local or env
+        api_key = os.environ.get('CARTESIA_API_KEY')
+        if not api_key:
+            try:
+                import secrets_local
+                api_key = getattr(secrets_local, 'CARTESIA_API_KEY', None)
+            except ImportError: pass
+        
+        if not api_key:
+            return False
+
+        client = Cartesia(api_key=api_key)
+        persona = getattr(shared_state, 'current_personality', 'default')
+        voice_id = CARTESIA_VOICE_MAP.get(persona, CARTESIA_VOICE_MAP["default"])
+        
+        data = client.tts.bytes(
+            model_id="sonic-2",
+            transcript=text,
+            voice_id=voice_id,
+            output_format={
+                "container": "mp3",
+                "bit_rate": 128000,
+                "sample_rate": 44100,
+            },
+        )
+        with open(filename, "wb") as f:
+            f.write(data)
+        return True
+    except Exception as e:
+        print(f"Cartesia TTS Error: {e}")
+        return False
 
 def speak_offline(text):
     """Fast offline TTS using espeak-ng"""
@@ -83,11 +134,20 @@ class GTTSThread(threading.Thread):
 
                     filename = f"speak_{uuid.uuid4()}.mp3"
                     
-                    # 1. Generate Audio file using Edge-TTS (Neural)
-                    try:
-                        asyncio.run(generate_edge_tts(text_to_speak, filename))
-                    except Exception as e:
-                        print(f"Edge-TTS failed, falling back to gTTS: {e}")
+                    # 1. Try Cartesia Sonic 2.0 (Premium)
+                    generated = generate_cartesia_tts(text_to_speak, filename)
+                    
+                    # 2. Fallback to Edge-TTS (Neural)
+                    if not generated:
+                        try:
+                            asyncio.run(generate_edge_tts(text_to_speak, filename))
+                            generated = True
+                        except Exception as e:
+                            print(f"Edge-TTS failed: {e}")
+
+                    # 3. Last fallback to gTTS
+                    if not generated:
+                        print("Falling back to gTTS...")
                         v = getattr(shared_state, 'current_voice_settings', {"accent": "com"})
                         tld = v.get("accent", "com")
                         tts = gTTS(text=text_to_speak, lang='en', tld=tld)

@@ -1,3 +1,4 @@
+cartesia
 edge-tts
 gtts>=2.4.0
 SpeechRecognition>=3.10.0
