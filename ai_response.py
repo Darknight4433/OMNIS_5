@@ -166,7 +166,8 @@ def get_chat_response(payload: str, user_id: str = "Unknown"):
                 # Clean up any "AI:" or "OMNIS:" prefixes
                 import re
                 if content:
-                    content = re.sub(r'^(AI:|OMNIS:|\s)+', '', content, flags=re.IGNORECASE).strip()
+                    # Aggressively remove any combination of "AI:" "AI" "OMNIS:" at the start
+                    content = re.sub(r'^(\s*AI\s*:?|\s*OMNIS\s*:?)+', '', content, flags=re.IGNORECASE).strip()
                 
                 if content: break 
 
