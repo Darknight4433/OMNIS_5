@@ -12,6 +12,13 @@ try:
 except ImportError:
     HAS_CARTESIA = False
 
+try:
+    from elevenlabs import save
+    from elevenlabs.client import ElevenLabs
+    HAS_ELEVEN = True
+except ImportError:
+    HAS_ELEVEN = False
+
 # Shared state to check if speaker is active
 _global_speaker_active = False
 _stop_requested = False
@@ -39,6 +46,16 @@ CARTESIA_VOICE_MAP = {
     "a friendly Giant": "6a16c1f4-462b-44de-998d-ccdaa4125a0a", # Friendly Brazilian (Deep)
     "a hyper-logical robot": "79f8b5fb-2cc8-479a-80df-29f7a7cf1a3e", # Nonfiction Man
     "a playful child": "2ee87190-8f84-4925-97da-e52547f9462c" # Child
+}
+
+# ElevenLabs Voice IDs
+ELEVEN_VOICE_MAP = {
+    "default": "aria", # Aria (Good multilingual/Indian)
+    "William Shakespeare": "daniel", # Daniel
+    "NASA Scientist": "george", # George
+    "a friendly Giant": "bill", # Bill
+    "a hyper-logical robot": "callum", # Callum
+    "a playful child": "bella" # Bella
 }
 
 def get_voice():
@@ -84,6 +101,36 @@ def generate_cartesia_tts(text, filename):
         return True
     except Exception as e:
         print(f"Cartesia TTS Error: {e}")
+        return False
+
+def generate_elevenlabs_tts(text, filename):
+    if not HAS_ELEVEN:
+        return False
+    try:
+        # Check for key in secrets_local or env
+        api_key = os.environ.get('ELEVENLABS_API_KEY')
+        if not api_key:
+            try:
+                import secrets_local
+                api_key = getattr(secrets_local, 'ELEVENLABS_API_KEY', None)
+            except ImportError: pass
+        
+        if not api_key:
+            return False
+
+        client = ElevenLabs(api_key=api_key)
+        persona = getattr(shared_state, 'current_personality', 'default')
+        voice_id = ELEVEN_VOICE_MAP.get(persona, ELEVEN_VOICE_MAP["default"])
+        
+        audio = client.generate(
+            text=text,
+            voice=voice_id,
+            model="eleven_multilingual_v2"
+        )
+        save(audio, filename)
+        return True
+    except Exception as e:
+        print(f"ElevenLabs TTS Error: {e}")
         return False
 
 def speak_offline(text):
@@ -134,10 +181,14 @@ class GTTSThread(threading.Thread):
 
                     filename = f"speak_{uuid.uuid4()}.mp3"
                     
-                    # 1. Try Cartesia Sonic 2.0 (Premium)
-                    generated = generate_cartesia_tts(text_to_speak, filename)
+                    # 1. Try ElevenLabs (Ultra Premium)
+                    generated = generate_elevenlabs_tts(text_to_speak, filename)
                     
-                    # 2. Fallback to Edge-TTS (Neural)
+                    # 2. Try Cartesia Sonic 2.0 (High Quality)
+                    if not generated:
+                        generated = generate_cartesia_tts(text_to_speak, filename)
+                    
+                    # 3. Fallback to Edge-TTS (Neural)
                     if not generated:
                         try:
                             asyncio.run(generate_edge_tts(text_to_speak, filename))
