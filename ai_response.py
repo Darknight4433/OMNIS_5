@@ -162,6 +162,11 @@ def get_chat_response(payload: str, user_id: str = "Unknown"):
                     content = response.parts[0].text.strip()
                 elif response.candidates:
                     content = response.candidates[0].content.parts[0].text.strip()
+
+                # Clean up any "AI:" or "OMNIS:" prefixes
+                import re
+                if content:
+                    content = re.sub(r'^(AI:|OMNIS:|\s)+', '', content, flags=re.IGNORECASE).strip()
                 
                 if content: break 
 
