@@ -181,4 +181,4 @@ def speak(text):
     s.speak(text)
 
 def is_speaking():
-    return any(t.name == "GTTSThread" and t.is_alive() for t in threading.enumerate())
+    return _global_speaker_active

@@ -2,6 +2,7 @@ import threading
 import time
 import os
 import ctypes
+import random
 import speech_recognition as sr
 
 # --- ALSA SILENCER ---
@@ -103,6 +104,12 @@ class SpeechRecognitionThread(threading.Thread):
                 while is_speaking() and not self.stop_event.is_set():
                     # Reduced poll time from 0.5 to 0.1 for better responsiveness
                     time.sleep(0.1)
+                
+                # Small protective delay so it doesn't hear the end of its own voice
+                if not self.stop_event.is_set():
+                    time.sleep(0.6)
+                    # Force a higher threshold briefly to clear any echo bias
+                    self.recognizer.energy_threshold = max(self.recognizer.energy_threshold, 1500)
 
                 with self.microphone as source:
                     # Only adjust for noise if we aren't already in conversation
