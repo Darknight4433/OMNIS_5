@@ -122,10 +122,12 @@ def generate_elevenlabs_tts(text, filename):
         persona = getattr(shared_state, 'current_personality', 'default')
         voice_id = ELEVEN_VOICE_MAP.get(persona, ELEVEN_VOICE_MAP["default"])
         
-        audio = client.generate(
+        # Updated for ElevenLabs SDK v1.0+
+        audio = client.text_to_speech.convert(
             text=text,
-            voice=voice_id,
-            model="eleven_multilingual_v2"
+            voice_id=voice_id,
+            model_id="eleven_multilingual_v2",
+            output_format="mp3_44100_128",
         )
         save(audio, filename)
         return True
