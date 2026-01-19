@@ -14,13 +14,13 @@ sudo apt-get update
 # Install system dependencies
 echo ""
 echo "Installing system dependencies..."
-sudo apt-get install -y python3-pip python3-dev portaudio19-dev python3-pyaudio
+sudo apt-get install -y python3-pip python3-dev portaudio19-dev python3-pyaudio mpg123 espeak-ng
 
 # Install Python packages
 echo ""
 echo "Installing Python packages..."
 pip3 install --upgrade pip
-pip3 install opencv-python face-recognition SpeechRecognition gtts pygame cvzone google-generativeai numpy
+pip3 install -r requirements.txt
 
 # Install additional audio dependencies
 echo ""
