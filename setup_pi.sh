@@ -14,7 +14,7 @@ sudo apt-get update
 # Install system dependencies
 echo ""
 echo "Installing system dependencies..."
-sudo apt-get install -y python3-pip python3-dev portaudio19-dev python3-pyaudio mpg123 espeak-ng
+sudo apt-get install -y python3-pip python3-dev portaudio19-dev python3-pyaudio mpg123 espeak-ng libatlas-base-dev
 
 # Install Python packages
 echo ""
