@@ -1,22 +1,31 @@
 import cv2
-import mediapipe as mp
 import numpy as np
+try:
+    import mediapipe as mp
+    HAS_MEDIAPIPE = True
+except ImportError:
+    HAS_MEDIAPIPE = False
 
 class EmotionManager:
     def __init__(self):
-        self.mp_face_mesh = mp.solutions.face_mesh
-        self.face_mesh = self.mp_face_mesh.FaceMesh(
-            static_image_mode=False,
-            max_num_faces=1,
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5
-        )
+        self.enabled = HAS_MEDIAPIPE
+        if self.enabled:
+            self.mp_face_mesh = mp.solutions.face_mesh
+            self.face_mesh = self.mp_face_mesh.FaceMesh(
+                static_image_mode=False,
+                max_num_faces=1,
+                min_detection_confidence=0.5,
+                min_tracking_confidence=0.5
+            )
         
     def detect_emotion(self, frame):
         """
         Detects basic emotion (Happy/Neutral) based on mouth landmarks.
         Returns: emotion_name (str)
         """
+        if not self.enabled:
+            return "Neutral"
+            
         results = self.face_mesh.process(frame)
         emotion = "Neutral"
 
