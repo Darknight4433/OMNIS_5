@@ -84,6 +84,20 @@ class MemoryManager:
         conn.close()
         return {k: v for k, v in facts}
 
+    def get_latest_topic(self, user_id):
+        """Fetch the latest significant topic or user query for follow-up."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT user_message FROM conversation_history 
+            WHERE user_id = ? 
+            AND length(user_message) > 15
+            ORDER BY timestamp DESC LIMIT 1
+        ''', (user_id,))
+        row = cursor.fetchone()
+        conn.close()
+        return row[0] if row else None
+
 if __name__ == "__main__":
     # Self-test
     mem = MemoryManager("test_memory.db")

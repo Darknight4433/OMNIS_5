@@ -1,6 +1,7 @@
 import time
 import random
 import datetime
+from memory_manager import MemoryManager
 
 class GreetingManager:
     def _get_time_of_day_greeting(self):
@@ -18,6 +19,7 @@ class GreetingManager:
             return "Hello"
 
     def __init__(self):
+        self.memory = MemoryManager()
         # Track when we last saw/greeted someone
         # Store: {name: timestamp}
         self.last_greeted = {}
@@ -75,9 +77,24 @@ class GreetingManager:
             if name in self.special_intros:
                 return self.special_intros[name]
             
+            base_greeting = ""
             if name == "Unknown":
-                return f"{time_greeting}! Welcome to MGM Model School."
-            return f"{time_greeting} {name}! Welcome to MGM Model School."
+                base_greeting = f"{time_greeting}! Welcome to MGM Model School."
+            else:
+                base_greeting = f"{time_greeting} {name}! Welcome to MGM Model School."
+            
+            # --- PROACTIVE MEMORY FOLLOW-UP ---
+            if name != "Unknown":
+                latest = self.memory.get_latest_topic(name)
+                if latest and len(latest) > 20: # Only if it was a real conversation
+                    follow_ups = [
+                        f" By the way, I was thinking about what you said earlier regarding {latest[:40]}...",
+                        f" Also, I hope that thing about {latest[:30]} went well!",
+                        f" It's good to see you again. I remember we were talking about {latest[:35]} last time."
+                    ]
+                    base_greeting += random.choice(follow_ups)
+            
+            return base_greeting
 
         # Scenario 2: Casual re-encounter (Short greeting)
         # Condition: Seen relatively recently (between 1 min and 1 hour)

@@ -110,7 +110,8 @@ def get_chat_response(payload: str, user_id: str = "Unknown"):
     now = datetime.datetime.now()
     time_str = now.strftime("%I:%M %p")
     day_str = now.strftime("%A, %B %d, %Y")
-    time_context = f" Current Time: {time_str}. Current Date: {day_str}."
+    mood = getattr(shared_state, 'active_user_mood', 'Neutral')
+    time_context = f" Current Time: {time_str}. Current Date: {day_str}. User Mood: {mood}."
 
     enhanced_system_prompt = (
         f"{SYSTEM_PROMPT}{persona_prompt}{time_context}\n"

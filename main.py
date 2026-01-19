@@ -11,6 +11,7 @@ import shared_state
 from greeting_manager import GreetingManager
 from head_controller import init_head
 from gesture_manager import GestureManager
+from emotion_manager import EmotionManager
 
 # Adapter for SR thread
 class SpeakerAdapter:
@@ -87,8 +88,9 @@ def main():
     # Initialize Head Controller
     head = init_head()
 
-    # Initialize Gesture Manager
+    # Initialize Recognition Managers
     gesture_man = GestureManager()
+    emotion_man = EmotionManager()
 
     print("Starting OMNIS Main Loop...")
     
@@ -133,6 +135,20 @@ def main():
                         
                         current_faces = face_locs
                         current_ids = new_ids
+                        
+                        # --- ACTIVE FACE TRACKING ---
+                        # Track the largest face (usually the one closest/primary)
+                        # face_locs is in (top, right, bottom, left) format
+                        if current_faces:
+                            top, right, bottom, left = current_faces[0]
+                            cx = (left + right) // 2
+                            cy = (top + bottom) // 2
+                            # Calculate small frame dimensions
+                            sh, sw, _ = imgS.shape
+                            head.track_face(cx, cy, frame_w=sw, frame_h=sh)
+                            # Sync speaking state for head gestures
+                            head.set_speaking(is_speaking())
+                        
                         # Update shared state for Voice Commands ("Who is here?")
                         shared_state.detected_people = current_ids
                         # Primary user (first face) for memory context
@@ -157,6 +173,10 @@ def main():
                 elif gesture == "THUMBS_UP" and not is_speaking():
                     # Optional: Quick interaction
                     pass
+                
+                # --- EMOTION (Mood) PIPELINE ---
+                mood = emotion_man.detect_emotion(rgb_img)
+                shared_state.active_user_mood = mood
 
             # --- HEAD TRACKING ---
             if head:
