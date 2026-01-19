@@ -50,12 +50,12 @@ CARTESIA_VOICE_MAP = {
 
 # ElevenLabs Voice IDs
 ELEVEN_VOICE_MAP = {
-    "default": "aria", # Aria (Good multilingual/Indian)
-    "William Shakespeare": "daniel", # Daniel
-    "NASA Scientist": "george", # George
-    "a friendly Giant": "bill", # Bill
-    "a hyper-logical robot": "callum", # Callum
-    "a playful child": "bella" # Bella
+    "default": "9BWtsMINqrJLrRacOk9x", # Aria
+    "William Shakespeare": "5Q0t7uMcjvnagumLfvZi", # Paul (British)
+    "NASA Scientist": "pNInz6obpgDQGcFmaJgB", # Adam (Deep/News)
+    "a friendly Giant": "FGY2WhTYpPnrIDTdsKH5", # Laura (Deep/Calm) replace if needed
+    "a hyper-logical robot": "CwhRBWXzGAHq8TQ4Fs17", # Roger
+    "a playful child": "ThT5KcBeYPX3keUQqHPh" # Dorothy (British Child)
 }
 
 def get_voice():
