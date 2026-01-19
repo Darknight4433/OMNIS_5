@@ -1,17 +1,24 @@
 import cv2
-import mediapipe as mp
 import numpy as np
+try:
+    import mediapipe as mp
+    HAS_MEDIAPIPE = True
+except ImportError:
+    HAS_MEDIAPIPE = False
+    print("⚠️ Warning: mediapipe not found. Gesture recognition will be disabled.")
 
 class GestureManager:
     def __init__(self):
-        self.mp_hands = mp.solutions.hands
-        self.hands = self.mp_hands.Hands(
-            static_image_mode=False,
-            max_num_hands=1,
-            min_detection_confidence=0.7,
-            min_tracking_confidence=0.5
-        )
-        self.mp_draw = mp.solutions.drawing_utils
+        self.enabled = HAS_MEDIAPIPE
+        if self.enabled:
+            self.mp_hands = mp.solutions.hands
+            self.hands = self.mp_hands.Hands(
+                static_image_mode=False,
+                max_num_hands=1,
+                min_detection_confidence=0.7,
+                min_tracking_confidence=0.5
+            )
+            self.mp_draw = mp.solutions.drawing_utils
         
         # Gesture states
         self.current_gesture = None
@@ -22,6 +29,9 @@ class GestureManager:
         Detects hand gestures in the given frame.
         Returns: gesture_name (str) or None
         """
+        if not self.enabled:
+            return None
+            
         results = self.hands.process(frame)
         gesture = None
 
