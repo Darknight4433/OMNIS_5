@@ -3,6 +3,7 @@ import google.generativeai as genai
 import shared_state
 import time
 import datetime
+import re
 
 # Fix for gRPC fork/poll error on Raspberry Pi
 os.environ["GRPC_POLL_STRATEGY"] = "poll"
