@@ -151,7 +151,7 @@ class SpeechRecognitionThread(threading.Thread):
                         audio_data = self.recognizer.listen(
                             source, 
                             timeout=5, 
-                            phrase_time_limit=10
+                            phrase_time_limit=15
                         )
                         self.is_listening = False # Stopped listening, start processing
                         # shared_state.is_listening = False
@@ -288,7 +288,8 @@ class SpeechRecognitionThread(threading.Thread):
 
                             if has_wake_word:
                                print("\n✅ WAKE WORD DETECTED!\n")
-                               self.speaker.speak("Yes?") # Quick ack
+                               from speaker import speak_offline
+                               speak_offline("Yes?") # Instant offline ack
                                self.conversation_active = True
 
                             

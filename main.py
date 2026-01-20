@@ -255,8 +255,10 @@ def main():
 
 
             # --- GREETING PIPELINE ---
-            # Don't interrupt if already speaking or listening
-            if not is_speaking():
+            # Don't interrupt if already speaking, listening, or thinking
+            is_listening = speech_thread.is_listening if speech_thread else False
+            
+            if not is_speaking() and not is_listening:
                 if detected_person_for_greeting:
                     # Case 1: We found a KNOWN person
                     greeting_text = greeter.get_greeting(detected_person_for_greeting)
