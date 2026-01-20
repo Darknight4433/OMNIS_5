@@ -275,12 +275,13 @@ def get_chat_response_stream(payload: str, user_id: str = "Unknown"):
     full_prompt = f"{enhanced_system_prompt}\n{history_context}\nUser: {payload}"
 
     models_to_try_base = [
-        'gemini-1.5-flash',
-        'gemini-1.5-flash-latest',
-        'gemini-1.5-flash-8b',
-        'gemini-2.0-flash-exp',
-        'gemini-1.5-pro',
-        'gemini-pro'
+        'models/gemini-1.5-flash',
+        'models/gemini-1.5-flash-latest',
+        'models/gemini-1.5-flash-8b',
+        'models/gemini-2.0-flash',
+        'models/gemini-2.0-flash-exp',
+        'models/gemini-1.5-pro',
+        'models/gemini-pro'
     ]
     
     max_retries = len(API_KEYS)
@@ -295,20 +296,22 @@ def get_chat_response_stream(payload: str, user_id: str = "Unknown"):
         models_to_try = list(models_to_try_base)
         try:
             genai.configure(api_key=key)
-            discovered = [m.name for m in genai.list_models() 
-                         if 'generateContent' in m.supported_generation_methods]
-            for d in discovered:
-                short_name = d.split('/')[-1]
-                if short_name not in models_to_try: 
-                    models_to_try.append(short_name) # Append unknown to the end
-                if d not in models_to_try: 
-                    models_to_try.append(d)
+            # Try to list models but don't hang if it's slow
+            discovered_raw = genai.list_models()
+            for m in discovered_raw:
+                if 'generateContent' in m.supported_generation_methods:
+                    if m.name not in models_to_try:
+                        # Prioritize models found for THIS key
+                        models_to_try.insert(0, m.name)
         except Exception as e:
             if retries == 0: 
-                print(f"   [Key {current_key_index+1}] Note: Could not list models (might be an old library version).")
-                print(f"   Tip: Try running 'pip install --upgrade google-generativeai' on your Pi.")
+                print(f"   [Key {current_key_index+1}] Tip: 'pip install --upgrade google-generativeai' if 404s persist.")
 
-        for model_name in [m for m in models_to_try if '1.5-flash' in m] + [m for m in models_to_try if '1.5-flash' not in m]:
+        # Clean duplicates while preserving order
+        seen = set()
+        final_models = [x for x in models_to_try if not (x in seen or seen.add(x))]
+
+        for model_name in final_models:
             try:
                 genai.configure(api_key=key)
                 model = genai.GenerativeModel(model_name)
