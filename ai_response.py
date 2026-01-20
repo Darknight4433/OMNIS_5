@@ -294,15 +294,12 @@ def get_chat_response_stream(payload: str, user_id: str = "Unknown"):
             for model in genai.list_models():
                 if 'generateContent' in model.supported_generation_methods:
                     name = model.name
-                    # Prefer flash 1.5
+                    # 1. Prefer Flash 1.5
                     if 'gemini-1.5-flash' in name:
                         found_model = name
                         break
-                    # Fallback to pro 1.5
-                    if 'gemini-1.5-pro' in name and not found_model:
-                        found_model = name
-                    # Deep fallback
-                    if 'gemini-pro' in name and not found_model:
+                    # 2. Accept ANY valid model if we haven't found one yet
+                    if not found_model:
                         found_model = name
             
             get_chat_response_stream.cached_model = found_model or 'models/gemini-1.5-flash'
