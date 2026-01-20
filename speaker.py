@@ -215,13 +215,14 @@ class GTTSThread(threading.Thread):
                     global _stop_requested
                     
                     # SPEED OPTIMIZATION...
-                    short_phrases = ["yes?", "ok.", "hello!", "hi.", "welcome."]
-                    text_lower = text_to_speak.lower().strip()
+                    # short_phrases = ["yes?", "ok.", "hello!", "hi.", "welcome."]
+                    # text_lower = text_to_speak.lower().strip()
                     
-                    if len(text_to_speak) < 25 or any(p in text_lower for p in short_phrases):
-                        if speak_offline(text_to_speak):
-                             _global_speaker_active = False 
-                             continue 
+                    # Disabled optimization to ensure Aria/Premium voice is always used
+                    # if len(text_to_speak) < 25 or any(p in text_lower for p in short_phrases):
+                    #    if speak_offline(text_to_speak):
+                    #          _global_speaker_active = False 
+                    #          continue 
 
                     filename = f"speak_{uuid.uuid4()}.mp3"
                     
