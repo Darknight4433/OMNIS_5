@@ -276,8 +276,8 @@ def get_chat_response_stream(payload: str, user_id: str = "Unknown"):
 
     models_to_try_base = [
         'models/gemini-1.5-flash',
-        'models/gemini-1.5-flash-latest',
         'models/gemini-1.5-flash-8b',
+        'models/gemini-1.5-flash-latest',
         'models/gemini-2.0-flash',
         'models/gemini-2.0-flash-exp',
         'models/gemini-1.5-pro',
@@ -296,23 +296,31 @@ def get_chat_response_stream(payload: str, user_id: str = "Unknown"):
         models_to_try = list(models_to_try_base)
         try:
             genai.configure(api_key=key)
-            # Try to list models but don't hang if it's slow
             discovered_raw = genai.list_models()
             for m in discovered_raw:
                 if 'generateContent' in m.supported_generation_methods:
                     if m.name not in models_to_try:
-                        # Prioritize models found for THIS key
-                        models_to_try.insert(0, m.name)
-        except Exception as e:
-            if retries == 0: 
-                print(f"   [Key {current_key_index+1}] Tip: 'pip install --upgrade google-generativeai' if 404s persist.")
+                        # Add unknown models to the END, don't prioritize them
+                        models_to_try.append(m.name)
+        except Exception:
+            pass
 
-        # Clean duplicates while preserving order
+        # 2. STRICT PRIORITY: Always try Flash models first!
+        # Research and Thinking models often have 0 quota on free tier.
+        priority_models = [m for m in models_to_try if 'flash' in m.lower() and 'research' not in m.lower()]
+        other_models = [m for m in models_to_try if m not in priority_models]
+        final_models = priority_models + other_models
+        
+        # Remove duplicates
         seen = set()
-        final_models = [x for x in models_to_try if not (x in seen or seen.add(x))]
+        final_models = [x for x in final_models if not (x in seen or seen.add(x))]
 
         for model_name in final_models:
             try:
+                # Skip models known to have no free quota unless nothing else works
+                if 'research' in model_name.lower() or 'thinking' in model_name.lower():
+                    if retries < max_retries - 1: continue 
+
                 genai.configure(api_key=key)
                 model = genai.GenerativeModel(model_name)
                 
