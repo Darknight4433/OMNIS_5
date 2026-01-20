@@ -297,35 +297,42 @@ def get_chat_response_stream(payload: str, user_id: str = "Unknown"):
                 if 'generateContent' in model.supported_generation_methods:
                     candidates.append(model.name)
             
-            # Filter candidates to avoid zero-quota traps (Models 2.0/2.5 usually have no free tier)
+            # Filter candidates to avoid zero-quota traps (Models 2.x/3.x usually have limits or are Live-only)
+            # We strictly hunt for the reliable 1.5 or 1.0 models.
             safe_candidates = []
             for m in candidates:
-                # Allow strictly approved models or 1.5 versions
-                if 'gemini-1.5' in m or 'gemini-pro' in m:
+                # 1.5 Flash/Pro are the gold standard for free tier
+                if 'gemini-1.5' in m:
                     safe_candidates.append(m)
-                # Allow the specific unlimited model user asked for
-                elif 'native-audio-dialog' in m:
+                # 1.0 Pro / Legacy Pro are good backups
+                elif 'gemini-1.0-pro' in m or 'gemini-pro' in m:
                     safe_candidates.append(m)
             
-            # Selection Strategy (Strict Order):
-            # 1. User Preferred Unlimited Model (Native Audio)
-            found_model = next((m for m in safe_candidates if 'native-audio-dialog' in m), None)
-
-            # 2. Flash 1.5 (The reliable workhorse)
-            if not found_model:
-                found_model = next((m for m in safe_candidates if 'gemini-1.5-flash' in m), None)
+            # Selection Strategy (Strict Order of Safety):
+            # 1. Flash 1.5
+            found_model = next((m for m in safe_candidates if 'gemini-1.5-flash' in m), None)
             
-            # 3. Pro 1.5 (High intelligence fallback)
+            # 2. Pro 1.5
             if not found_model:
                 found_model = next((m for m in safe_candidates if 'gemini-1.5-pro' in m), None)
 
-            # 4. Legacy Pro
+            # 3. Legacy Pro (Last Resort)
             if not found_model:
                 found_model = next((m for m in safe_candidates if 'gemini-pro' in m), None)
 
-            get_chat_response_stream.cached_model = found_model or 'models/gemini-1.5-flash'
-            print(f"   [Debug] Auto-selected SAFE model: {get_chat_response_stream.cached_model}")
+            # If absolutely nothing "Safe" found, fallback to the first 'flash' model but try to avoid 2.5
+            if not found_model:
+                 found_model = next((m for m in candidates if 'flash' in m and '2.5' not in m and '2.0' not in m), None)
 
+            # Absolute final desperation: just take the first candidate
+            if not found_model and candidates:
+                 found_model = candidates[0]
+
+            get_chat_response_stream.cached_model = found_model or 'models/gemini-pro'
+            print(f"   [Debug] Auto-selected SAFE model: {get_chat_response_stream.cached_model}")
+            
+            # Force the candidate list to ONLY obey the safe model.
+            models_to_try_base = [get_chat_response_stream.cached_model]
             
             get_chat_response_stream.cached_model = found_model or 'models/gemini-1.5-flash'
             print(f"   [Debug] Auto-selected model: {get_chat_response_stream.cached_model}")
