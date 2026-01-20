@@ -258,22 +258,22 @@ def main():
             # Don't interrupt if already speaking or listening
             if not is_speaking():
                 if detected_person_for_greeting:
-                    # Check our smart manager
+                    # Case 1: We found a KNOWN person
                     greeting_text = greeter.get_greeting(detected_person_for_greeting)
                     if greeting_text:
                         print(f"Greeting: {greeting_text}")
                         speak(greeting_text)
                         
                         # Trigger Voice Listener if not active
-                        # (Thread is now started globally, so we just ensure it's still running)
                         if not (speech_thread and speech_thread.is_alive()):
-                             # Restart if crashed
                             try:
                                 speech_thread = SpeechRecognitionThread(speaker_adapter)
                                 speech_thread.daemon = True
                                 speech_thread.start()
                             except: pass
 
+                elif current_faces:
+                    # Case 2: No known person, but FACES are present -> Greet Unknown
                     if greeter.should_greet("Unknown"):
                         msg = greeter.get_unknown_greeting()
                         speak(msg)
