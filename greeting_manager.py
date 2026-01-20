@@ -87,13 +87,16 @@ class GreetingManager:
             # --- PROACTIVE MEMORY FOLLOW-UP ---
             if name != "Unknown":
                 latest = self.memory.get_latest_topic(name)
-                if latest and len(latest) > 20: # Only if it was a real conversation
+                if latest and len(latest) > 10: 
+                    # Clean up: take first few words to sound natural
+                    topic = " ".join(latest.split()[:6]) + "..."
                     follow_ups = [
-                        f" By the way, I was thinking about what you said earlier regarding {latest[:40]}...",
-                        f" Also, I hope that thing about {latest[:30]} went well!",
-                        f" It's good to see you again. I remember we were talking about {latest[:35]} last time."
+                        f" By the way, I was thinking about our chat about {topic}.",
+                        f" Also, I hope that discussion we had about {topic} was helpful!",
+                        f" It's good to see you again. I remember we were talking about {topic} recently."
                     ]
                     base_greeting += random.choice(follow_ups)
+
             
             return base_greeting
 

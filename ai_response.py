@@ -261,13 +261,24 @@ def get_chat_response_stream(payload: str, user_id: str = "Unknown"):
     enhanced_system_prompt = f"{SYSTEM_PROMPT}{persona_prompt}{time_context}\n{facts_context}\nYou are talking to {user_id}."
     full_prompt = f"{enhanced_system_prompt}\n{history_context}\nUser: {payload}"
 
+    # 1. Expanded list of model variants to try
     models_to_try = [
+        'gemini-1.5-flash-8b',
         'gemini-1.5-flash',
         'gemini-2.0-flash',
-        'gemini-1.5-flash-8b',
         'gemini-1.5-pro'
     ]
     
+    # 2. Add automatic discovery as a fallback
+    try:
+        discovered = [m.name.split('/')[-1] for m in genai.list_models() 
+                     if 'generateContent' in m.supported_generation_methods]
+        for d in discovered:
+            if d not in models_to_try:
+                models_to_try.append(d)
+    except:
+        pass
+
     max_retries = len(API_KEYS)
     retries = 0
     full_text = ""
@@ -281,6 +292,9 @@ def get_chat_response_stream(payload: str, user_id: str = "Unknown"):
                 genai.configure(api_key=key)
                 model = genai.GenerativeModel(model_name)
                 
+                print(f"   [Model {model_name}] Discovering availability...")
+                
+                # Try Streaming First
                 response = model.generate_content(
                     full_prompt,
                     stream=True,
@@ -290,14 +304,14 @@ def get_chat_response_stream(payload: str, user_id: str = "Unknown"):
                     )
                 )
                 
+                chunk_received = False
                 sentence_buffer = ""
                 for chunk in response:
+                    chunk_received = True
                     try:
                         if not chunk.text: continue
                         text = chunk.text
-                    except ValueError:
-                        # This happens if the chunk was blocked
-                        continue
+                    except ValueError: continue
                         
                     full_text += text
                     sentence_buffer += text
@@ -310,16 +324,36 @@ def get_chat_response_stream(payload: str, user_id: str = "Unknown"):
                                 if p_clean: yield p_clean
                             sentence_buffer = parts[-1]
                 
-                if sentence_buffer.strip():
-                    p_clean = re.sub(r'^(\s*AI\s*:?|\s*OMNIS\s*:?)+', '', sentence_buffer, flags=re.IGNORECASE).strip()
-                    if p_clean: yield p_clean
-                
-                success = True
-                break # Model loop success
+                # If streaming worked, we are done
+                if chunk_received:
+                    if sentence_buffer.strip():
+                        p_clean = re.sub(r'^(\s*AI\s*:?|\s*OMNIS\s*:?)+', '', sentence_buffer, flags=re.IGNORECASE).strip()
+                        if p_clean: yield p_clean
+                    success = True
+                    break
+
+                # --- FALLBACK: Try Non-Streaming if Stream gave nothing ---
+                print(f"   [Model {model_name}] Stream empty, trying non-streaming...")
+                response = model.generate_content(
+                    full_prompt,
+                    generation_config=genai.types.GenerationConfig(
+                        max_output_tokens=MAX_TOKENS,
+                        temperature=TEMPERATURE,
+                    )
+                )
+                if response.text:
+                    full_text = response.text
+                    clean_res = re.sub(r'^(\s*AI\s*:?|\s*OMNIS\s*:?)+', '', full_text, flags=re.IGNORECASE).strip()
+                    # Yield sentences from the full block
+                    for s in re.split(r'(?<=[.!?\n]) ', clean_res):
+                        if s.strip(): yield s.strip()
+                    success = True
+                    break
 
             except Exception as e:
                 err_str = str(e).lower()
                 print(f"   [Model {model_name}] Error: {err_str}")
+
                 
                 if "quota" in err_str or "429" in err_str:
                     # Key quota reached - stop trying models with this key
