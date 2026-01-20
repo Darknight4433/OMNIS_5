@@ -46,7 +46,8 @@ class GreetingManager:
             "Honey": "Hello Honey Sir. Welcome. It is great to have Asianet News represented here.",
             "Ansari A": "Welcome Ansari Sir. We are honored to have a reporter from Chandrika here.",
             "Babu Rajeev P R": "Hello Babu Rajeev Sir. Welcome to our school. Great to have Mathrubhumi News here.",
-            "Saji Nair": "Welcome Saji Sir. We are pleased to have Kerala Kaumudi Daily's Varkala correspondent visiting us."
+            "Saji Nair": "Welcome Saji Sir. We are pleased to have Kerala Kaumudi Daily's Varkala correspondent visiting us.",
+            "Thahir Majid": "Hello Thahir Sir! We are honored to welcome the Chief Reporter of Hit Media News. Welcome to MGM Model School."
         }
         
     def should_greet(self, name):
