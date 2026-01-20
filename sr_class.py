@@ -44,11 +44,12 @@ class SpeechRecognitionThread(threading.Thread):
             self.wake_words = ['omnis', 'hello', 'hey', 'amaze', 'thomas', 'promise', 'homeless', 'harness', 'almonds', 'omni']
         self.recognizer = sr.Recognizer()
         # SUPER SENSITIVITY SETTINGS
-        self.recognizer.energy_threshold = 300  # Start lower (sensitive)
+        self.recognizer.energy_threshold = 400  # Slightly higher for noisy rooms
         self.recognizer.dynamic_energy_threshold = True
-        self.recognizer.pause_threshold = 0.4  # Stop listening faster (was 0.5)
-        self.recognizer.phrase_threshold = 0.2 # Faster phrase detection (was 0.3)
-        self.recognizer.non_speaking_duration = 0.2 # faster turnaround (was 0.3)
+        self.recognizer.pause_threshold = 0.8  # Wait a bit longer for user to finish (was 0.4)
+        self.recognizer.phrase_threshold = 0.3 # default
+        self.recognizer.non_speaking_duration = 0.4 
+
 
     def _open_microphone(self) -> bool:
         # Debug: List all microphones
@@ -77,19 +78,21 @@ class SpeechRecognitionThread(threading.Thread):
                     name = "Default" if idx is None else str(idx)
                     rate_str = f" @ {rate}Hz" if rate else " (Default Rate)"
                     print(f"[Microphone] Trying index {name}{rate_str}...")
-                    
-                    self.microphone = sr.Microphone(device_index=idx, sample_rate=rate)
-                    
-                    # Fast calibration
+
+                    # Force 16000Hz chunking for better recognition
+                    self.microphone = sr.Microphone(device_index=idx, sample_rate=16000 if rate is None else rate, chunk_size=1024)
+
+                    # Calibration
+                    # Duration 1.0 is more stable than 0.5
                     with self.microphone as source:
                         self.recognizer.adjust_for_ambient_noise(source, duration=1.0)
-                    
+
                     print(f"✅ Mic Connected on Index {name}{rate_str}")
                     return True
                 except Exception as e:
                     # print(f"   Failed index {idx} rate {rate}: {e}")
                     continue
-        
+
         print("❌ Could not find any working microphone.")
         return False
 
@@ -140,6 +143,11 @@ class SpeechRecognitionThread(threading.Thread):
                     
                     self.is_listening = True # Flag on
                     # shared_state.is_listening = True
+
+                    try:
+                        # Play a tiny start-listening blip (ALSA default)
+                        os.system("aplay -q /usr/share/sounds/alsa/Front_Left.wav --duration=0.1 > /dev/null 2>&1")
+                    except: pass
 
                     try:
                         # Double check speaker just before listening
@@ -336,6 +344,11 @@ class SpeechRecognitionThread(threading.Thread):
                                         # Incremental is better
                                         shared_state.last_ai_text = full_reply.strip()
                                     
+                                    # Success beep
+                                    try:
+                                        os.system("aplay -q /usr/share/sounds/alsa/Front_Center.wav --duration=0.1 > /dev/null 2>&1")
+                                    except: pass
+
                                     print(f"💬 Full Response to {active_user}: {full_reply.strip()}\n")
                                     # shared_state.last_ai_text = full_reply.strip() # Final update
                                 

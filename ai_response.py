@@ -1,12 +1,25 @@
 import os
-import google.generativeai as genai
-import shared_state
-import time
-import datetime
 import re
+import threading
+import time
+import requests
+import warnings
+import datetime
+import shared_state
+
+# Suppress annoying deprecated warning from old SDK
+warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", message=".*google.generativeai.*")
 
 # Fix for gRPC fork/poll error on Raspberry Pi
 os.environ["GRPC_POLL_STRATEGY"] = "poll"
+
+try:
+    import google.generativeai as genai
+except ImportError:
+    genai = None
+
+from memory_manager import MemoryManager
 
 # --- CONFIGURATION ---
 MAX_TOKENS = 300  # Increased for fuller responses (was 150)
@@ -265,9 +278,9 @@ def get_chat_response_stream(payload: str, user_id: str = "Unknown"):
         'gemini-1.5-flash',
         'gemini-1.5-flash-latest',
         'gemini-1.5-flash-8b',
-        'gemini-2.0-flash',
+        'gemini-2.0-flash-exp',
         'gemini-1.5-pro',
-        'gemini-1.5-pro-latest'
+        'gemini-pro' # Absolute fallback
     ]
     
     max_retries = len(API_KEYS)
