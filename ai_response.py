@@ -291,16 +291,31 @@ def get_chat_response_stream(payload: str, user_id: str = "Unknown"):
         if not hasattr(get_chat_response_stream, "cached_model"):
             print("   [Debug] Discovering available models...")
             found_model = None
+            # Search for the best available model
+            candidates = []
             for model in genai.list_models():
                 if 'generateContent' in model.supported_generation_methods:
-                    name = model.name
-                    # 1. Prefer Flash 1.5
-                    if 'gemini-1.5-flash' in name:
-                        found_model = name
-                        break
-                    # 2. Accept ANY valid model if we haven't found one yet
-                    if not found_model:
-                        found_model = name
+                    candidates.append(model.name)
+            
+            # Selection Strategy:
+            # 1. Exact Match for 1.5 Flash (Most Stable)
+            found_model = next((m for m in candidates if 'gemini-1.5-flash' in m), None)
+            
+            # 2. Any "Flash-Lite" model (Fastest fallback)
+            if not found_model:
+                found_model = next((m for m in candidates if 'flash-lite' in m.lower()), None)
+
+            # 3. Any "Flash" model (Generic fast)
+            if not found_model:
+                found_model = next((m for m in candidates if 'flash' in m.lower()), None)
+                
+            # 4. First available model (Desperation)
+            if not found_model and candidates:
+                found_model = candidates[0]
+
+            get_chat_response_stream.cached_model = found_model or 'models/gemini-1.5-flash'
+            print(f"   [Debug] Auto-selected model: {get_chat_response_stream.cached_model}")
+            print(f"   [Debug] Available candidates: {candidates}")
             
             get_chat_response_stream.cached_model = found_model or 'models/gemini-1.5-flash'
             print(f"   [Debug] Auto-selected model: {get_chat_response_stream.cached_model}")
