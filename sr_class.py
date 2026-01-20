@@ -44,11 +44,13 @@ class SpeechRecognitionThread(threading.Thread):
             self.wake_words = ['omnis', 'hello', 'hey', 'amaze', 'thomas', 'promise', 'homeless', 'harness', 'almonds', 'omni']
         self.recognizer = sr.Recognizer()
         # SUPER SENSITIVITY SETTINGS
-        self.recognizer.energy_threshold = 400  # Slightly higher for noisy rooms
+        self.recognizer.energy_threshold = 400
         self.recognizer.dynamic_energy_threshold = True
-        self.recognizer.pause_threshold = 0.8  # Wait a bit longer for user to finish (was 0.4)
-        self.recognizer.phrase_threshold = 0.3 # default
-        self.recognizer.non_speaking_duration = 0.4 
+        self.recognizer.dynamic_energy_adjustment_damping = 0.15 # Better damping for noise
+        self.recognizer.dynamic_energy_ratio = 1.5
+        self.recognizer.pause_threshold = 1.0  # More patient
+        self.recognizer.phrase_threshold = 0.3
+        self.recognizer.non_speaking_duration = 0.5 
 
 
     def _open_microphone(self) -> bool:
