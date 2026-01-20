@@ -298,8 +298,12 @@ def get_chat_response_stream(payload: str, user_id: str = "Unknown"):
                     candidates.append(model.name)
             
             # Selection Strategy:
-            # 1. Exact Match for 1.5 Flash (Most Stable)
-            found_model = next((m for m in candidates if 'gemini-1.5-flash' in m), None)
+            # 1. User Preferred Unlimited Model (Top Priority)
+            found_model = next((m for m in candidates if 'gemini-2.5-flash-native-audio-dialog' in m), None)
+
+            # 2. Exact Match for 1.5 Flash (Most Stable)
+            if not found_model:
+                found_model = next((m for m in candidates if 'gemini-1.5-flash' in m), None)
             
             # 2. Any "Flash-Lite" model (Fastest fallback)
             if not found_model:
