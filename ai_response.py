@@ -285,9 +285,12 @@ def get_chat_response_stream(payload: str, user_id: str = "Unknown"):
     full_prompt = f"{enhanced_system_prompt}\n{history_context}\nUser: {payload}"
 
     models_to_try_base = [
-        'gemini-1.5-flash',      # FREE tier available
-        'gemini-1.5-pro',        # FREE tier available
-        'gemini-pro'             # Legacy fallback
+        'models/gemini-1.5-flash',     # Try with prefix first
+        'gemini-1.5-flash',            # Try without prefix
+        'models/gemini-1.5-flash-8b',  # Very fast, free tier
+        'gemini-1.5-flash-8b',
+        'models/gemini-1.5-pro',       # High intelligence fallback
+        'gemini-1.5-pro'
     ]
     
     max_retries = min(3, len(API_KEYS))  # Try max 3 keys with working models
