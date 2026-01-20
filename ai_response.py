@@ -284,16 +284,39 @@ def get_chat_response_stream(payload: str, user_id: str = "Unknown"):
     enhanced_system_prompt = f"{SYSTEM_PROMPT}{persona_prompt}{time_context}\n{facts_context}\nYou are talking to {user_id}."
     full_prompt = f"{enhanced_system_prompt}\n{history_context}\nUser: {payload}"
 
-    models_to_try_base = [
-        'models/gemini-1.5-flash',     # Try with prefix first
-        'gemini-1.5-flash',            # Try without prefix
-        'models/gemini-1.5-flash-8b',  # Very fast, free tier
-        'gemini-1.5-flash-8b',
-        'models/gemini-1.5-pro',       # High intelligence fallback
-        'gemini-1.5-pro'
-    ]
-    
-    max_retries = min(3, len(API_KEYS))  # Try max 3 keys with working models
+    # DYNAMIC MODEL DISCOVERY (The Nuclear Fix)
+    # ---------------------------------------------------------
+    # Instead of guessing, we ask Gemini what models it has.
+    try:
+        if not hasattr(get_chat_response_stream, "cached_model"):
+            print("   [Debug] Discovering available models...")
+            found_model = None
+            for model in genai.list_models():
+                if 'generateContent' in model.supported_generation_methods:
+                    name = model.name
+                    # Prefer flash 1.5
+                    if 'gemini-1.5-flash' in name:
+                        found_model = name
+                        break
+                    # Fallback to pro 1.5
+                    if 'gemini-1.5-pro' in name and not found_model:
+                        found_model = name
+                    # Deep fallback
+                    if 'gemini-pro' in name and not found_model:
+                        found_model = name
+            
+            get_chat_response_stream.cached_model = found_model or 'models/gemini-1.5-flash'
+            print(f"   [Debug] Auto-selected model: {get_chat_response_stream.cached_model}")
+
+        # Use the auto-discovered model
+        models_to_try_base = [get_chat_response_stream.cached_model]
+        max_retries = min(3, len(API_KEYS))
+
+    except Exception as e:
+        print(f"   [Debug] Model discovery failed: {e}. Using fallback.")
+        models_to_try_base = ['models/gemini-1.5-flash', 'gemini-1.5-flash']
+        max_retries = min(3, len(API_KEYS))
+    # ---------------------------------------------------------
     retries = 0
     full_text = ""
     
