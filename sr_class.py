@@ -44,13 +44,11 @@ class SpeechRecognitionThread(threading.Thread):
             self.wake_words = ['omnis', 'hello', 'hey', 'amaze', 'thomas', 'promise', 'homeless', 'harness', 'almonds', 'omni']
         self.recognizer = sr.Recognizer()
         # SUPER SENSITIVITY SETTINGS
-        self.recognizer.energy_threshold = 400
+        self.recognizer.energy_threshold = 400  # Slightly higher for noisy rooms
         self.recognizer.dynamic_energy_threshold = True
-        self.recognizer.dynamic_energy_adjustment_damping = 0.15 # Better damping for noise
-        self.recognizer.dynamic_energy_ratio = 1.5
-        self.recognizer.pause_threshold = 1.0  # More patient
-        self.recognizer.phrase_threshold = 0.3
-        self.recognizer.non_speaking_duration = 0.5 
+        self.recognizer.pause_threshold = 0.8  # Wait a bit longer for user to finish (was 0.4)
+        self.recognizer.phrase_threshold = 0.3 # default
+        self.recognizer.non_speaking_duration = 0.4 
 
 
     def _open_microphone(self) -> bool:
@@ -108,6 +106,7 @@ class SpeechRecognitionThread(threading.Thread):
         while not self.stop_event.is_set() and not self._open_microphone():
             time.sleep(1)
 
+        timeout_count = 0
         while not self.stop_event.is_set():
             try:
                 # 1. Wait if speaking BEFORE opening the mic
@@ -174,6 +173,7 @@ class SpeechRecognitionThread(threading.Thread):
                         text = self.recognizer.recognize_google(audio_data)
                         print(f"📝 Heard: '{text}'")
                         shared_state.last_user_text = text # Update UI
+                        shared_state.last_interaction_time = time.time() # Reset cooldown
                         
                         # Fix common mishearings of "Omnis"
                         text_lower = text.lower()
@@ -210,13 +210,16 @@ class SpeechRecognitionThread(threading.Thread):
 
                         if has_wake_word or self.conversation_active:
                             if has_wake_word:
-                                 # Standard wake word response (unless we are silencing)
+                                 # Standard wake word response
+                                 # Play a tiny ACK blip
+                                 try:
+                                    os.system("aplay -q /usr/share/sounds/alsa/Front_Center.wav --duration=0.1 > /dev/null 2>&1")
+                                 except: pass
                                  pass 
 
                             question = text_lower
                             for w in self.wake_words:
-                                question = question.replace(w, "")
-                            question = question.strip()
+                                question = question.replace(w, "").strip()
                             
                             # --- VOICE COMMANDS ---
                             
@@ -342,27 +345,20 @@ class SpeechRecognitionThread(threading.Thread):
                                         self.speaker.speak(sentence)
                                         full_reply += sentence + " "
                                         
-                                        # Update UI incrementally or at end?
-                                        # Incremental is better
+                                        # Update UI and Interaction time incrementally
                                         shared_state.last_ai_text = full_reply.strip()
+                                        shared_state.last_interaction_time = time.time()
                                     
-                                    # Success beep
-                                    try:
-                                        os.system("aplay -q /usr/share/sounds/alsa/Front_Center.wav --duration=0.1 > /dev/null 2>&1")
-                                    except: pass
-
                                     print(f"💬 Full Response to {active_user}: {full_reply.strip()}\n")
                                     # shared_state.last_ai_text = full_reply.strip() # Final update
                                 
                                 # Reset timeout on successful interaction
-                                if 'timeout_count' not in locals(): timeout_count = 0
                                 timeout_count = 0
                         else:
                             print("   (No wake word)\n")
 
                     except sr.WaitTimeoutError:
                         if self.conversation_active:
-                            if 'timeout_count' not in locals(): timeout_count = 0
                             timeout_count += 1
                             if timeout_count >= 3:
                                 print("⏱️ Timeout - say 'OMNIS' to start again\n")

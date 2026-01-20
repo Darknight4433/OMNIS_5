@@ -255,16 +255,20 @@ def main():
 
 
             # --- GREETING PIPELINE ---
-            # Don't interrupt if already speaking, listening, or thinking
             is_listening = speech_thread.is_listening if speech_thread else False
+            now = time.time()
             
-            if not is_speaking() and not is_listening:
+            # 5-second cooldown after speaking/listening to avoid double-greetings
+            if not is_speaking() and not is_listening and (now - shared_state.last_interaction_time > 5):
                 if detected_person_for_greeting:
                     # Case 1: We found a KNOWN person
                     greeting_text = greeter.get_greeting(detected_person_for_greeting)
                     if greeting_text:
                         print(f"Greeting: {greeting_text}")
                         speak(greeting_text)
+                        
+                        # Update interaction time to block immediate re-greetings
+                        shared_state.last_interaction_time = time.time()
                         
                         # Trigger Voice Listener if not active
                         if not (speech_thread and speech_thread.is_alive()):

@@ -22,14 +22,14 @@ except ImportError:
 from memory_manager import MemoryManager
 
 # --- CONFIGURATION ---
-MAX_TOKENS = 300  # Increased for fuller responses (was 150)
+MAX_TOKENS = 400  # Increased for fuller responses (was 300)
 TEMPERATURE = 0.7 
 SYSTEM_PROMPT = (
     "You are OMNIS, a friendly and lifelike school robot from MGM Model School. "
-    "Keep answers conversational, short (2-3 sentences), and helpful. "
+    "Give detailed but concise answers (typically 3-5 sentences). "
+    "Be helpful, empathetic, and professional. "
     "Never start your response with 'AI:' or 'OMNIS:'. "
-    "Avoid starting sentences with 'Um' or 'Well' unless necessary. "
-    "Be natural."
+    "Be direct and natural."
 )
 
 # --- API KEY ROTATION MANAGER ---
@@ -280,7 +280,7 @@ def get_chat_response_stream(payload: str, user_id: str = "Unknown"):
         'gemini-1.5-flash-8b',
         'gemini-2.0-flash-exp',
         'gemini-1.5-pro',
-        'gemini-pro' # Absolute fallback
+        'gemini-pro'
     ]
     
     max_retries = len(API_KEYS)
@@ -297,16 +297,18 @@ def get_chat_response_stream(payload: str, user_id: str = "Unknown"):
             genai.configure(api_key=key)
             discovered = [m.name for m in genai.list_models() 
                          if 'generateContent' in m.supported_generation_methods]
-            for d in reversed(discovered):
+            for d in discovered:
                 short_name = d.split('/')[-1]
-                if short_name not in models_to_try: models_to_try.insert(0, short_name)
-                if d not in models_to_try: models_to_try.insert(0, d)
+                if short_name not in models_to_try: 
+                    models_to_try.append(short_name) # Append unknown to the end
+                if d not in models_to_try: 
+                    models_to_try.append(d)
         except Exception as e:
             if retries == 0: 
                 print(f"   [Key {current_key_index+1}] Note: Could not list models (might be an old library version).")
                 print(f"   Tip: Try running 'pip install --upgrade google-generativeai' on your Pi.")
 
-        for model_name in models_to_try:
+        for model_name in [m for m in models_to_try if '1.5-flash' in m] + [m for m in models_to_try if '1.5-flash' not in m]:
             try:
                 genai.configure(api_key=key)
                 model = genai.GenerativeModel(model_name)
