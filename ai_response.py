@@ -275,13 +275,12 @@ def get_chat_response_stream(payload: str, user_id: str = "Unknown"):
     full_prompt = f"{enhanced_system_prompt}\n{history_context}\nUser: {payload}"
 
     models_to_try_base = [
-        'models/gemini-1.5-flash',
-        'models/gemini-1.5-flash-8b',
-        'models/gemini-1.5-flash-latest',
-        'models/gemini-2.0-flash',
-        'models/gemini-2.0-flash-exp',
-        'models/gemini-1.5-pro',
-        'models/gemini-pro'
+        'gemini-1.5-flash',
+        'gemini-1.5-flash-8b',
+        'gemini-2.0-flash',
+        'gemini-1.5-pro',
+        'gemini-1.0-pro-latest',
+        'gemini-pro'
     ]
     
     max_retries = len(API_KEYS)
@@ -293,34 +292,46 @@ def get_chat_response_stream(payload: str, user_id: str = "Unknown"):
         success = False
 
         # 1. Automatic model discovery for this specific key
-        models_to_try = list(models_to_try_base)
+        discovered_raw = []
         try:
             genai.configure(api_key=key)
-            discovered_raw = genai.list_models()
-            for m in discovered_raw:
-                if 'generateContent' in m.supported_generation_methods:
-                    if m.name not in models_to_try:
-                        # Add unknown models to the END, don't prioritize them
-                        models_to_try.append(m.name)
+            discovered_raw = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
         except Exception:
             pass
 
-        # 2. STRICT PRIORITY: Always try Flash models first!
-        # Research and Thinking models often have 0 quota on free tier.
-        priority_models = [m for m in models_to_try if 'flash' in m.lower() and 'research' not in m.lower()]
-        other_models = [m for m in models_to_try if m not in priority_models]
-        final_models = priority_models + other_models
+        # 2. Build the trial list
+        candidates = list(models_to_try_base)
+        for d in discovered_raw:
+            # Add full name and short name
+            if d not in candidates: candidates.append(d)
+            short = d.split('/')[-1]
+            if short not in candidates: candidates.append(short)
+
+        # 3. Filter and Prioritize
+        # Flash is the king of free tier quota
+        flash_models = [m for m in candidates if 'flash' in m.lower() and 'research' not in m.lower()]
+        pro_models = [m for m in candidates if 'pro' in m.lower() and m not in flash_models and 'research' not in m.lower()]
+        others = [m for m in candidates if m not in flash_models and m not in pro_models]
         
-        # Remove duplicates
+        final_models = flash_models + pro_models + others
+        
+        # Final cleanup: No duplicates, no research/thinking/exp unless necessary
+        ready_to_try = []
         seen = set()
-        final_models = [x for x in final_models if not (x in seen or seen.add(x))]
+        for m in final_models:
+            m_low = m.lower()
+            if m in seen: continue
+            # Avoid experimental/research models on first pass as they are often 429-0-limit
+            if ('research' in m_low or 'thinking' in m_low or 'exp' in m_low) and retries < max_retries - 1:
+                continue
+            ready_to_try.append(m)
+            seen.add(m)
 
-        for model_name in final_models:
+        if retries == 0:
+            print(f"   [Debug] Models to try: {ready_to_try[:5]}...")
+
+        for model_name in ready_to_try:
             try:
-                # Skip models known to have no free quota unless nothing else works
-                if 'research' in model_name.lower() or 'thinking' in model_name.lower():
-                    if retries < max_retries - 1: continue 
-
                 genai.configure(api_key=key)
                 model = genai.GenerativeModel(model_name)
                 
