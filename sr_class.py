@@ -34,6 +34,7 @@ class SpeechRecognitionThread(threading.Thread):
         self.speaker = speaker
         self.verbose = True
         self.conversation_active = False
+        self.is_listening = False  # New flag for UI
         self.microphone = None
         self.conversation_timeout = 15
         
@@ -137,6 +138,9 @@ class SpeechRecognitionThread(threading.Thread):
                         print("👂 Listening (conversation mode)...")
                     else:
                         print("👂 Listening for 'OMNIS'...")
+                    
+                    self.is_listening = True # Flag on
+                    # shared_state.is_listening = True
 
                     try:
                         # Double check speaker just before listening
@@ -149,6 +153,8 @@ class SpeechRecognitionThread(threading.Thread):
                             timeout=5, 
                             phrase_time_limit=10
                         )
+                        self.is_listening = False # Stopped listening, start processing
+                        # shared_state.is_listening = False
 
                         # Skip processing if we started speaking while listening (rare but possible)
                         if is_speaking():
@@ -158,6 +164,7 @@ class SpeechRecognitionThread(threading.Thread):
                         print("🔄 Processing audio...")
                         text = self.recognizer.recognize_google(audio_data)
                         print(f"📝 Heard: '{text}'")
+                        shared_state.last_user_text = text # Update UI
                         
                         # Fix common mishearings of "Omnis"
                         text_lower = text.lower()
@@ -316,6 +323,7 @@ class SpeechRecognitionThread(threading.Thread):
                                     if isinstance(resp, dict) and 'choices' in resp:
                                         answer = resp['choices'][0]['message']['content']
                                         print(f"💬 AI Response to {active_user}: {answer}\n")
+                                        shared_state.last_ai_text = answer # Update UI
                                         self.speaker.speak(answer)
                                     else:
                                         self.speaker.speak("Sorry, I couldn't process that.")

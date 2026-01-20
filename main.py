@@ -11,7 +11,10 @@ import shared_state
 from greeting_manager import GreetingManager
 from head_controller import init_head
 from gesture_manager import GestureManager
+from gesture_manager import GestureManager
 from emotion_manager import EmotionManager
+from ui_manager import UIManager
+import shared_state
 
 # Adapter for SR thread
 class SpeakerAdapter:
@@ -92,6 +95,13 @@ def main():
     gesture_man = GestureManager()
     emotion_man = EmotionManager()
 
+    # Initialize UI Manager
+    ui = UIManager()
+    
+    # State tracking for UI
+    last_user_text = ""
+    last_ai_text = ""
+    
     print("Starting OMNIS Main Loop...")
     
     try:
@@ -211,7 +221,8 @@ def main():
                         # Known Face
                         mode_type = 1
                         bbox = (55+x1, 162+y1, x2 - x1, y2 - y1)
-                        imgBackground = cvzone.cornerRect(imgBackground, bbox=bbox, rt=0)
+                        # Replaced with UIManager: imgBackground = cvzone.cornerRect(imgBackground, bbox=bbox, rt=0)
+                        ui.draw_face_box(imgBackground, bbox, person_id, is_known=True)
                         
                         # Find the largest/main face to greet
                         detected_person_for_greeting = person_id
@@ -234,7 +245,10 @@ def main():
                     else:
                         # Unknown Face
                         mode_type = 0
-                        cv2.rectangle(imgBackground, (55+x1, 162+y1), (55+x2, 162+y2), (0, 0, 255), 2)
+                        # Replaced with UIManager
+                        bbox = (55+x1, 162+y1, x2 - x1, y2 - y1)
+                        ui.draw_face_box(imgBackground, bbox, "Unknown", is_known=False)
+                        # cv2.rectangle(imgBackground, (55+x1, 162+y1), (55+x2, 162+y2), (0, 0, 255), 2)
                         
             else:
                 mode_type = 0
@@ -260,11 +274,33 @@ def main():
                                 speech_thread.start()
                             except: pass
 
-                elif len(current_ids) > 0 and "Unknown" in current_ids:
-                    # Maybe greet unknown?
                     if greeter.should_greet("Unknown"):
                         msg = greeter.get_unknown_greeting()
                         speak(msg)
+
+            # --- UI UPDATES (Status & Subtitles) ---
+            
+            # Determine Status
+            current_status = "IDLE"
+            if is_speaking():
+                current_status = "SPEAKING"
+            elif speech_thread and speech_thread.is_listening: 
+                # Note: We need to expose 'is_listening' in sr_class or infer it
+                current_status = "LISTENING"
+            
+            # Check for new text in shared_state (requires update in sr_class/ai_response to write to shared_state)
+            if hasattr(shared_state, 'last_user_text') and shared_state.last_user_text != last_user_text:
+                last_user_text = shared_state.last_user_text
+                ui.draw_subtitles(imgBackground, user_text=last_user_text)
+                
+            if hasattr(shared_state, 'last_ai_text') and shared_state.last_ai_text != last_ai_text:
+                last_ai_text = shared_state.last_ai_text
+                ui.draw_subtitles(imgBackground, ai_text=last_ai_text)
+                
+            # Draw persistent elements
+            ui.draw_status_bar(imgBackground, current_status)
+            # Redraw active subtitle if timer is valid
+            ui.draw_subtitles(imgBackground) # Calls refresh logic internally
 
 
             cv2.imshow("Face Attendance", imgBackground)

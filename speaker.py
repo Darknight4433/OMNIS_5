@@ -103,37 +103,79 @@ def generate_cartesia_tts(text, filename):
         print(f"Cartesia TTS Error: {e}")
         return False
 
+
+# ElevenLabs Rotation State
+current_eleven_key_index = 0
+
 def generate_elevenlabs_tts(text, filename):
     if not HAS_ELEVEN:
         return False
+        
+    global current_eleven_key_index
+    
+    # 1. Gather Keys
+    keys = []
+    
+    # Check env
+    env_key = os.environ.get('ELEVENLABS_API_KEY')
+    if env_key: keys.append(env_key)
+    
+    # Check secrets_local / api_keys
     try:
-        # Check for key in secrets_local or env
-        api_key = os.environ.get('ELEVENLABS_API_KEY')
-        if not api_key:
-            try:
-                import secrets_local
-                api_key = getattr(secrets_local, 'ELEVENLABS_API_KEY', None)
-            except ImportError: pass
-        
-        if not api_key:
-            return False
+        import secrets_local
+        # Single key
+        if hasattr(secrets_local, 'ELEVENLABS_API_KEY') and secrets_local.ELEVENLABS_API_KEY:
+             if secrets_local.ELEVENLABS_API_KEY not in keys:
+                 keys.append(secrets_local.ELEVENLABS_API_KEY)
+        # Key List
+        if hasattr(secrets_local, 'ELEVENLABS_KEYS'):
+            for k in secrets_local.ELEVENLABS_KEYS:
+                if k and k not in keys: keys.append(k)
+    except ImportError: pass
+    
+    # Check api_keys.py (if exists)
+    try:
+        from api_keys import ELEVENLABS_KEYS as EXT_KEYS
+        for k in EXT_KEYS:
+            if k and k not in keys: keys.append(k)
+    except ImportError: pass
 
-        client = ElevenLabs(api_key=api_key)
-        persona = getattr(shared_state, 'current_personality', 'default')
-        voice_id = ELEVEN_VOICE_MAP.get(persona, ELEVEN_VOICE_MAP["default"])
-        
-        # Updated for ElevenLabs SDK v1.0+
-        audio = client.text_to_speech.convert(
-            text=text,
-            voice_id=voice_id,
-            model_id="eleven_turbo_v2",
-            output_format="mp3_44100_128",
-        )
-        save(audio, filename)
-        return True
-    except Exception as e:
-        print(f"ElevenLabs TTS Error: {e}")
+    if not keys:
         return False
+
+    attempts = 0
+    max_attempts = len(keys)
+    
+    while attempts < max_attempts:
+        key = keys[current_eleven_key_index]
+        print(f"ElevenLabs: Using Key #{current_eleven_key_index + 1}")
+        
+        try:
+            client = ElevenLabs(api_key=key)
+            persona = getattr(shared_state, 'current_personality', 'default')
+            voice_id = ELEVEN_VOICE_MAP.get(persona, ELEVEN_VOICE_MAP["default"])
+            
+            # Updated for ElevenLabs SDK v1.0+
+            audio = client.text_to_speech.convert(
+                text=text,
+                voice_id=voice_id,
+                model_id="eleven_turbo_v2",
+                output_format="mp3_44100_128",
+            )
+            save(audio, filename)
+            return True
+        except Exception as e:
+            err_str = str(e).lower()
+            if "quota" in err_str or "401" in err_str or "unauthorized" in err_str:
+                print(f"⚠️ ElevenLabs Key #{current_eleven_key_index + 1} Failed (Quota/Auth). Rotating...")
+                current_eleven_key_index = (current_eleven_key_index + 1) % len(keys)
+                attempts += 1
+            else:
+                print(f"ElevenLabs Error: {e}")
+                return False # Non-quota error (network etc), maybe don't rotate?
+    
+    print("❌ All ElevenLabs keys exhausted.")
+    return False
 
 def speak_offline(text):
     """Fast offline TTS using espeak-ng"""
