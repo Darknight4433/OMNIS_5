@@ -297,29 +297,35 @@ def get_chat_response_stream(payload: str, user_id: str = "Unknown"):
                 if 'generateContent' in model.supported_generation_methods:
                     candidates.append(model.name)
             
-            # Selection Strategy:
-            # 1. User Preferred Unlimited Model (Top Priority)
-            found_model = next((m for m in candidates if 'gemini-2.5-flash-native-audio-dialog' in m), None)
-
-            # 2. Exact Match for 1.5 Flash (Most Stable)
-            if not found_model:
-                found_model = next((m for m in candidates if 'gemini-1.5-flash' in m), None)
+            # Filter candidates to avoid zero-quota traps (Models 2.0/2.5 usually have no free tier)
+            safe_candidates = []
+            for m in candidates:
+                # Allow strictly approved models or 1.5 versions
+                if 'gemini-1.5' in m or 'gemini-pro' in m:
+                    safe_candidates.append(m)
+                # Allow the specific unlimited model user asked for
+                elif 'native-audio-dialog' in m:
+                    safe_candidates.append(m)
             
-            # 2. Any "Flash-Lite" model (Fastest fallback)
-            if not found_model:
-                found_model = next((m for m in candidates if 'flash-lite' in m.lower()), None)
+            # Selection Strategy (Strict Order):
+            # 1. User Preferred Unlimited Model (Native Audio)
+            found_model = next((m for m in safe_candidates if 'native-audio-dialog' in m), None)
 
-            # 3. Any "Flash" model (Generic fast)
+            # 2. Flash 1.5 (The reliable workhorse)
             if not found_model:
-                found_model = next((m for m in candidates if 'flash' in m.lower()), None)
-                
-            # 4. First available model (Desperation)
-            if not found_model and candidates:
-                found_model = candidates[0]
+                found_model = next((m for m in safe_candidates if 'gemini-1.5-flash' in m), None)
+            
+            # 3. Pro 1.5 (High intelligence fallback)
+            if not found_model:
+                found_model = next((m for m in safe_candidates if 'gemini-1.5-pro' in m), None)
+
+            # 4. Legacy Pro
+            if not found_model:
+                found_model = next((m for m in safe_candidates if 'gemini-pro' in m), None)
 
             get_chat_response_stream.cached_model = found_model or 'models/gemini-1.5-flash'
-            print(f"   [Debug] Auto-selected model: {get_chat_response_stream.cached_model}")
-            print(f"   [Debug] Available candidates: {candidates}")
+            print(f"   [Debug] Auto-selected SAFE model: {get_chat_response_stream.cached_model}")
+
             
             get_chat_response_stream.cached_model = found_model or 'models/gemini-1.5-flash'
             print(f"   [Debug] Auto-selected model: {get_chat_response_stream.cached_model}")
