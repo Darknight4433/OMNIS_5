@@ -241,14 +241,24 @@ def get_chat_response(payload: str, user_id: str = "Unknown"):
             retries += 1
             continue
 
-    return {'choices': [{'message': {'content': "My daily brain power is exhausted. Please check my API keys in a few minutes."}}]}
+    # HARD FALLBACK: Use offline school knowledge
+    print("\n⚠️ All Gemini keys exhausted. Switching to OFFLINE mode.")
+    try:
+        from school_data import get_school_response
+        offline_response = get_school_response(payload)
+        if offline_response and offline_response != "I don't have that information.":
+            return {'choices': [{'message': {'content': offline_response}}]}
+    except Exception as e:
+        print(f"Offline fallback error: {e}")
+    
+    return {'choices': [{'message': {'content': "I'm currently in offline mode, but I'm still here to help with school information. Try asking about MGM Model School!"}}]}
 
 def get_chat_response_stream(payload: str, user_id: str = "Unknown"):
     """Yields AI response parts (sentences) using Gemini Streaming."""
     global current_key_index
     
     if not API_KEYS:
-        yield "I need an API key to think."
+        yield "I'm in offline mode. Ask me about MGM Model School!"
         return
 
     # Reuse context logic (Memory context is needed here too)
@@ -275,15 +285,15 @@ def get_chat_response_stream(payload: str, user_id: str = "Unknown"):
     full_prompt = f"{enhanced_system_prompt}\n{history_context}\nUser: {payload}"
 
     models_to_try_base = [
-        'gemini-1.5-flash',
-        'gemini-1.5-flash-8b',
-        'gemini-2.0-flash',
-        'gemini-1.5-pro',
-        'gemini-1.0-pro-latest',
-        'gemini-pro'
+        'models/gemini-1.5-flash',
+        'models/gemini-1.5-flash-8b',
+        'models/gemini-2.0-flash',
+        'models/gemini-1.5-pro',
+        'models/gemini-1.0-pro-latest',
+        'models/gemini-pro'
     ]
     
-    max_retries = len(API_KEYS)
+    max_retries = min(2, len(API_KEYS))  # Try max 2 keys, then fail fast
     retries = 0
     full_text = ""
     
@@ -422,7 +432,19 @@ def get_chat_response_stream(payload: str, user_id: str = "Unknown"):
 
 
     
-    yield "I'm having a bit of trouble thinking right now. Please try again."
+    
+    # HARD FALLBACK for Streaming: Try offline school knowledge
+    print("\n⚠️ All Gemini keys exhausted in stream. Trying OFFLINE mode.")
+    try:
+        from school_data import get_school_response
+        offline_response = get_school_response(payload)
+        if offline_response and offline_response != "I don't have that information.":
+            yield offline_response
+            return
+    except Exception as e:
+        print(f"Offline fallback error: {e}")
+    
+    yield "I'm currently in offline mode, but I'm still here to help with school information. Try asking about MGM Model School!"
 
 if __name__ == '__main__':
     # Test Streaming
