@@ -261,7 +261,12 @@ def get_chat_response_stream(payload: str, user_id: str = "Unknown"):
     enhanced_system_prompt = f"{SYSTEM_PROMPT}{persona_prompt}{time_context}\n{facts_context}\nYou are talking to {user_id}."
     full_prompt = f"{enhanced_system_prompt}\n{history_context}\nUser: {payload}"
 
-    models_to_try = ['gemini-2.0-flash', 'gemini-1.5-flash']
+    models_to_try = [
+        'gemini-1.5-flash',
+        'gemini-2.0-flash',
+        'gemini-1.5-flash-8b',
+        'gemini-1.5-pro'
+    ]
     
     max_retries = len(API_KEYS)
     retries = 0
@@ -314,13 +319,16 @@ def get_chat_response_stream(payload: str, user_id: str = "Unknown"):
 
             except Exception as e:
                 err_str = str(e).lower()
+                print(f"   [Model {model_name}] Error: {err_str}")
+                
                 if "quota" in err_str or "429" in err_str:
-                    # Don't try other models with this key if quota exceeded
+                    # Key quota reached - stop trying models with this key
                     break 
-                elif "not found" in err_str or "invalid" in err_str:
-                    continue # Try next model
+                elif "not found" in err_str or "not_found" in err_str or "invalid" in err_str:
+                    # Specific model not available for this key, try next model
+                    continue 
                 else: 
-                    print(f"DEBUG: Model Error: {e}")
+                    # Unexpected error (permissions, network, etc)
                     break
         
         if success:
@@ -331,12 +339,17 @@ def get_chat_response_stream(payload: str, user_id: str = "Unknown"):
             return
 
         # Advance key
+        print(f"⚠️ Key #{current_key_index + 1} exhausted or failed. Rotating...")
         current_key_index = (current_key_index + 1) % len(API_KEYS)
         retries += 1
+
 
     
     yield "I'm having a bit of trouble thinking right now. Please try again."
 
 if __name__ == '__main__':
-    # Test
-    print(get_chat_response("What is the capital of India?"))
+    # Test Streaming
+    print("--- TESTING STREAMING AI RESPONSE ---")
+    for chunk in get_chat_response_stream("Tell me a 1-sentence joke."):
+        print(f"STREAM: {chunk}")
+    print("--- DONE ---")
