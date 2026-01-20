@@ -177,141 +177,151 @@ def generate_elevenlabs_tts(text, filename):
     print("❌ All ElevenLabs keys exhausted.")
     return False
 
+import re
+
+def split_text_to_sentences(text):
+    """Splits text into sentences for parallel processing."""
+    # Split by . ! ? but try to keep it reasonable
+    sentences = re.split(r'(?<=[.!?]) +', text)
+    return [s.strip() for s in sentences if s.strip()]
+
 def speak_offline(text):
     """Fast offline TTS using espeak-ng"""
     try:
-        # Get settings from shared_state
         v = getattr(shared_state, 'current_voice_settings', {"pitch": 50, "speed": 175})
         pitch = v.get("pitch", 50)
         speed = v.get("speed", 160)
-        
-        # Use espeak-ng for instant feedback
         os.system(f"espeak-ng -s {speed} -p {pitch} '{text}' > /dev/null 2>&1")
         return True
     except:
         return False
 
+
 class GTTSThread(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
-        self.queue = []
+        self.pending_queue = []    # Text waiting to be generated
+        self.playback_queue = []   # Filenames waiting to be played
         self.lock = threading.Lock()
         self.running = True
 
     def run(self):
         global _global_speaker_active
+        
+        # Background Generator Loop
+        def generator_loop():
+            while self.running:
+                text_to_gen = None
+                self.lock.acquire()
+                if self.pending_queue:
+                    text_to_gen = self.pending_queue.pop(0)
+                self.lock.release()
+                
+                if text_to_gen:
+                    filename = f"speak_{uuid.uuid4()}.mp3"
+                    try:
+                        # 1. Try ElevenLabs
+                        generated = generate_elevenlabs_tts(text_to_gen, filename)
+                        
+                        # 2. Try Cartesia
+                        if not generated:
+                            generated = generate_cartesia_tts(text_to_gen, filename)
+                        
+                        # 3. Fallback to Edge-TTS
+                        if not generated:
+                            try:
+                                asyncio.run(generate_edge_tts(text_to_gen, filename))
+                                generated = True
+                            except: pass
+                            
+                        # 4. Fallback to gTTS
+                        if not generated:
+                            v = getattr(shared_state, 'current_voice_settings', {"accent": "com"})
+                            tts = gTTS(text=text_to_gen, lang='en', tld=v.get("accent", "com"))
+                            tts.save(filename)
+                            generated = True
+                        
+                        if generated:
+                            self.lock.acquire()
+                            self.playback_queue.append(filename)
+                            self.lock.release()
+                    except Exception as e:
+                        print(f"Gen Error: {e}")
+                else:
+                    time.sleep(0.05)
+
+        # Start generator in sub-thread
+        gen_thread = threading.Thread(target=generator_loop)
+        gen_thread.daemon = True
+        gen_thread.start()
+
+        # Main Playback Loop
         while self.running:
-            text_to_speak = None
-            
+            filename_to_play = None
             self.lock.acquire()
-            if self.queue:
-                text_to_speak = self.queue.pop(0)
+            if self.playback_queue:
+                filename_to_play = self.playback_queue.pop(0)
             self.lock.release()
 
-            if text_to_speak:
+            if filename_to_play:
                 _global_speaker_active = True
                 try:
-                    # Global stop flag
-                    global _stop_requested
-                    
-                    # SPEED OPTIMIZATION...
-                    # short_phrases = ["yes?", "ok.", "hello!", "hi.", "welcome."]
-                    # text_lower = text_to_speak.lower().strip()
-                    
-                    # Disabled optimization to ensure Aria/Premium voice is always used
-                    # if len(text_to_speak) < 25 or any(p in text_lower for p in short_phrases):
-                    #    if speak_offline(text_to_speak):
-                    #          _global_speaker_active = False 
-                    #          continue 
-
-                    filename = f"speak_{uuid.uuid4()}.mp3"
-                    
-                    # 1. Try ElevenLabs (Ultra Premium)
-                    generated = generate_elevenlabs_tts(text_to_speak, filename)
-                    
-                    # 2. Try Cartesia Sonic 2.0 (High Quality)
-                    if not generated:
-                        generated = generate_cartesia_tts(text_to_speak, filename)
-                    
-                    # 3. Fallback to Edge-TTS (Neural)
-                    if not generated:
-                        try:
-                            asyncio.run(generate_edge_tts(text_to_speak, filename))
-                            generated = True
-                        except Exception as e:
-                            print(f"Edge-TTS failed: {e}")
-
-                    # 3. Last fallback to gTTS
-                    if not generated:
-                        print("Falling back to gTTS...")
-                        v = getattr(shared_state, 'current_voice_settings', {"accent": "com"})
-                        tld = v.get("accent", "com")
-                        tts = gTTS(text=text_to_speak, lang='en', tld=tld)
-                        tts.save(filename)
-
-                    # 2. Play Audio (Cross Platform)
-                    try:
-                        import audio_config
-                        card_index = getattr(audio_config, 'SPEAKER_CARD_INDEX', 1)
-                    except ImportError:
-                        card_index = 1
-
+                    import audio_config
+                    card_index = getattr(audio_config, 'SPEAKER_CARD_INDEX', 1)
                     device_str = f"hw:{card_index},0"
                     
                     if os.name != 'nt':
                          os.environ['AUDIODEV'] = device_str
                          os.environ['SDL_PATH_ALSA_DEVICE'] = device_str
-                         os.environ['SDL_ALSA_DEVICE'] = device_str
 
                     played = False
                     if os.name != 'nt':
                         try:
-                            res = os.system(f"mpg123 -q -a {device_str} {filename} > /dev/null 2>&1")
-                            if res == 0:
-                                played = True
-                        except:
-                            pass
+                            res = os.system(f"mpg123 -q -a {device_str} {filename_to_play} > /dev/null 2>&1")
+                            if res == 0: played = True
+                        except: pass
 
                     if not played:
                         try:
                             if not pygame.mixer.get_init():
                                 pygame.mixer.init(frequency=22050, size=-16, channels=2, buffer=4096)
-                            
-                            pygame.mixer.music.load(filename)
+                            pygame.mixer.music.load(filename_to_play)
                             pygame.mixer.music.play()
-                            
                             while pygame.mixer.music.get_busy() and not _stop_requested:
-                                time.sleep(0.1)
-                            
-                            if _stop_requested:
-                                pygame.mixer.music.stop()
-
-                            try:
-                                if hasattr(pygame.mixer.music, 'unload'):
-                                    pygame.mixer.music.unload()
-                            except:
-                                pass
+                                time.sleep(0.05)
+                            if _stop_requested: pygame.mixer.music.stop()
+                            if hasattr(pygame.mixer.music, 'unload'):
+                                pygame.mixer.music.unload()
                         except Exception as e:
-                            print(f"Pygame Audio Error: {e}")
-                    
-                    if os.path.exists(filename):
-                        try:
-                            os.remove(filename)
-                        except:
-                            pass
+                            print(f"Pygame Play Error: {e}")
 
+                    if os.path.exists(filename_to_play):
+                        try: os.remove(filename_to_play)
+                        except: pass
                 except Exception as e:
-                    print(f"Speaker Error: {e}")
+                    print(f"Playback Error: {e}")
                 finally:
-                    _stop_requested = False 
-                    _global_speaker_active = False
+                    # Don't reset _global_speaker_active yet if more is coming
+                    pass
             else:
+                # If nothing to play, check if we are still generating
+                self.lock.acquire()
+                if not self.pending_queue and not self.playback_queue:
+                    _global_speaker_active = False
+                self.lock.release()
                 time.sleep(0.1)
 
     def speak(self, text):
-        self.lock.acquire()
-        self.queue.append(text)
-        self.lock.release()
+        # Semantic splitting
+        if len(text) > 120:
+            sentences = split_text_to_sentences(text)
+            self.lock.acquire()
+            self.pending_queue.extend(sentences)
+            self.lock.release()
+        else:
+            self.lock.acquire()
+            self.pending_queue.append(text)
+            self.lock.release()
 
     def stop(self):
         self.running = False

@@ -21,7 +21,7 @@ except:
 # ---------------------
 
 from speaker import GTTSThread, is_speaking
-from ai_response import get_chat_response
+from ai_response import get_chat_response, get_chat_response_stream
 from school_data import get_school_answer_enhanced
 import shared_state
 from register_face import register_name
@@ -319,14 +319,25 @@ class SpeechRecognitionThread(threading.Thread):
                                     self.speaker.speak(random.choice(fillers))
                                     
                                     active_user = getattr(shared_state, 'active_user', 'Unknown')
-                                    resp = get_chat_response(question, user_id=active_user)
-                                    if isinstance(resp, dict) and 'choices' in resp:
-                                        answer = resp['choices'][0]['message']['content']
-                                        print(f"💬 AI Response to {active_user}: {answer}\n")
-                                        shared_state.last_ai_text = answer # Update UI
-                                        self.speaker.speak(answer)
-                                    else:
-                                        self.speaker.speak("Sorry, I couldn't process that.")
+                                    
+                                    # Use Streaming for MUCH lower latency
+                                    full_reply = ""
+                                    first_sentence = True
+                                    
+                                    for sentence in get_chat_response_stream(question, user_id=active_user):
+                                        if first_sentence:
+                                            print(f"💬 AI Starting: {sentence}")
+                                            first_sentence = False
+                                        
+                                        self.speaker.speak(sentence)
+                                        full_reply += sentence + " "
+                                        
+                                        # Update UI incrementally or at end?
+                                        # Incremental is better
+                                        shared_state.last_ai_text = full_reply.strip()
+                                    
+                                    print(f"💬 Full Response to {active_user}: {full_reply.strip()}\n")
+                                    # shared_state.last_ai_text = full_reply.strip() # Final update
                                 
                                 # Reset timeout on successful interaction
                                 if 'timeout_count' not in locals(): timeout_count = 0

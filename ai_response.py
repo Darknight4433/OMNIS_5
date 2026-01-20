@@ -229,8 +229,106 @@ def get_chat_response(payload: str, user_id: str = "Unknown"):
 
     return {'choices': [{'message': {'content': "My daily brain power is exhausted. Please check my API keys in a few minutes."}}]}
 
+def get_chat_response_stream(payload: str, user_id: str = "Unknown"):
+    """Yields AI response parts (sentences) using Gemini Streaming."""
+    global current_key_index
+    
+    if not API_KEYS:
+        yield "I need an API key to think."
+        return
 
-    return {'choices': [{'message': {'content': "My daily brain power is exhausted. Please check my API keys in a few minutes."}}]}
+    # Reuse context logic (Memory context is needed here too)
+    history = memory.get_recent_history(user_id)
+    facts = memory.get_user_facts(user_id)
+    
+    history_context = ""
+    if history:
+        history_context = "\nRecent Conversation:\n"
+        for u, a in history: history_context += f"User: {u}\nAI: {a}\n"
+    
+    facts_context = ""
+    if facts:
+        facts_context = "\nKnown facts about this user:\n"
+        for k, v in facts.items(): facts_context += f"- {k}: {v}\n"
+    
+    personality = getattr(shared_state, 'current_personality', 'default')
+    persona_prompt = f" Current Personality/Role: {personality}. Adopt this persona's tone, vocabulary, and style." if personality != "default" else ""
+    
+    now = datetime.datetime.now()
+    time_context = f" Time: {now.strftime('%I:%M %p')}. Date: {now.strftime('%A, %B %d, %Y')}. User Mood: {getattr(shared_state, 'active_user_mood', 'Neutral')}."
+
+    enhanced_system_prompt = f"{SYSTEM_PROMPT}{persona_prompt}{time_context}\n{facts_context}\nYou are talking to {user_id}."
+    full_prompt = f"{enhanced_system_prompt}\n{history_context}\nUser: {payload}"
+
+    models_to_try = ['gemini-2.0-flash', 'gemini-1.5-flash']
+    
+    max_retries = len(API_KEYS)
+    retries = 0
+    full_text = ""
+    
+    while retries < max_retries:
+        key = API_KEYS[current_key_index]
+        try:
+            genai.configure(api_key=key)
+            model = genai.GenerativeModel(models_to_try[0])
+            
+            response = model.generate_content(
+                full_prompt,
+                stream=True,
+                generation_config=genai.types.GenerationConfig(
+                    max_output_tokens=MAX_TOKENS,
+                    temperature=TEMPERATURE,
+                )
+            )
+            
+            sentence_buffer = ""
+            for chunk in response:
+                if not chunk.text: continue
+                
+                text = chunk.text
+                full_text += text
+                sentence_buffer += text
+                
+                # Check for end of sentence
+                if any(term in sentence_buffer for term in [". ", "! ", "? ", "\n"]):
+                    # Split sentences
+                    # Use re to keep the punctuation
+                    parts = re.split(r'(?<=[.!?\n]) ', sentence_buffer)
+                    if len(parts) > 1:
+                        for p in parts[:-1]:
+                            p_clean = re.sub(r'^(\s*AI\s*:?|\s*OMNIS\s*:?)+', '', p, flags=re.IGNORECASE).strip()
+                            if p_clean: yield p_clean
+                        sentence_buffer = parts[-1]
+            
+            # Final yield
+            if sentence_buffer.strip():
+                p_clean = re.sub(r'^(\s*AI\s*:?|\s*OMNIS\s*:?)+', '', sentence_buffer, flags=re.IGNORECASE).strip()
+                if p_clean: yield p_clean
+                
+            # --- SUCCESS! Save memory ---
+            clean_full = full_text.replace('*', '').replace('#', '').strip()
+            clean_full = re.sub(r'^(\s*AI\s*:?|\s*OMNIS\s*:?)+', '', clean_full, flags=re.IGNORECASE).strip()
+            
+            # Simple fact extraction 
+            if "my favorite" in payload.lower() and "is" in payload.lower():
+                 try:
+                    parts = payload.lower().split("my favorite")[1].split("is")
+                    memory.store_fact(user_id, parts[0].strip(), parts[1].strip().rstrip(".!?"))
+                 except: pass
+
+            memory.add_conversation(user_id, payload, clean_full)
+            return
+
+        except Exception as e:
+            err_str = str(e).lower()
+            if "quota" in err_str or "429" in err_str:
+                current_key_index = (current_key_index + 1) % len(API_KEYS)
+                retries += 1
+                continue
+            else:
+                break
+    
+    yield "I'm having a bit of trouble thinking right now. Please try again."
 
 if __name__ == '__main__':
     # Test
