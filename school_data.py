@@ -17,7 +17,7 @@ SCHOOL_INFO = {
     "total_staff": 250,
     "sister_school": "KPM Model School",
     "starting_students": 5,
-    "history": "The school was started because Sree Narayana Guru observed that this location had great potential for education and suggested building a school here. It began with just 5 students, one of whom was our current principal, Dr Pooja S.",
+    "history": "The school was started because Sree Narayana Guru observed that this location had great potential for education. The foundation stone was laid by the legendary Malayalam actor, Nitya Haritha Nayakan Prem Nazir. The school began with just 5 students, one of whom was our current principal, Dr Pooja S.",
 }
 
 # School Rules - UK Style + MGM Rules
@@ -107,6 +107,7 @@ CUSTOM_QA = {
     "Who said this place had potential for education?": "Sree Narayana Guru originally stated that this location was ideal for education, leading to the creation of MGM Model School.",
     "Who were the first students of MGM?": "MGM started with 5 students, and one of them was our current principal, Dr Pooja S.",
     "Was the principal a student here?": "Yes! Our current principal, Dr Pooja S, was one of the first five students when the school originally started.",
+    "Who laid the foundation stone?": "The foundation stone of MGM Model School was laid by the legendary actor, Nitya Haritha Nayakan Prem Nazir.",
 }
 
 # ============================================
@@ -121,7 +122,7 @@ METADATA = [
     {'answer': "You are welcome!", 'question_data': ["thank", 'you']},
     {'answer': "Dr P K Sukumaran", 'question_data': ['who', 'founder', 'mgm']},
     {'answer': "Dr P K Sukumaran", 'question_data': ['who', 'founded', 'mgm']},
-    {'answer': "Nitya Haritha Nayakan Mister Prem Nasir", 'question_data': ['foundation', 'stone', 'laid']},
+    {'answer': "The foundation stone was laid by the legendary actor Nitya Haritha Nayakan Prem Nazir.", 'question_data': ['foundation', 'stone', 'laid', 'prem', 'nazir']},
     {'answer': 'Dr Pooja S', 'question_data': ['our', 'principal']},
     {'answer': 'Ms Lalitha', 'question_data': ['who', 'first', 'principal', 'of', 'mgm']},
     {'answer': 'We have three digital libraries', 'question_data': ['many', 'digital', 'library', 'libraries']},
