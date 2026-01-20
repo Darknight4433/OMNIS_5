@@ -185,7 +185,17 @@ def get_chat_response(payload: str, user_id: str = "Unknown"):
             clean_text = content.replace('*', '').replace('#', '').replace('**', '')
             
             # --- SAVE TO MEMORY ---
-            memory.add_conversation(user_id, payload, clean_text)
+            
+            # Check for explicit memory triggers
+            payload_lower = payload.lower()
+            permanent_memory = False
+            memory_triggers = ["remember this", "keep in mind", "remember forever", "remember for ever", "don't forget this"]
+            
+            if any(trigger in payload_lower for trigger in memory_triggers):
+                permanent_memory = True
+                print("🧠 Long-term memory triggered for this interaction.")
+
+            memory.add_conversation(user_id, payload, clean_text, permanent=permanent_memory)
             
             # Simple heuristic to extract facts (Heuristic: "My favorite X is Y")
             if "my favorite" in payload.lower() and "is" in payload.lower():

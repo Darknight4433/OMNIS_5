@@ -68,22 +68,27 @@ class SpeechRecognitionThread(threading.Thread):
         for i in range(len(mics) if 'mics' in locals() else 3):
              if i not in indices_to_try: indices_to_try.append(i)
 
+        # Common sample rates to try for Raspberry Pi / ALSA
+        sample_rates = [16000, 44100, 48000, None]
+
         for idx in indices_to_try:
-            try:
-                name = "Default" if idx is None else str(idx)
-                print(f"[Microphone] Trying index {name}...")
-                
-                self.microphone = sr.Microphone(device_index=idx)
-                
-                # Fast calibration
-                with self.microphone as source:
-                    self.recognizer.adjust_for_ambient_noise(source, duration=1.0)
-                
-                print(f"✅ Mic Connected on Index {name}")
-                return True
-            except Exception as e:
-                # print(f"   Failed index {idx}: {e}")
-                continue
+            for rate in sample_rates:
+                try:
+                    name = "Default" if idx is None else str(idx)
+                    rate_str = f" @ {rate}Hz" if rate else " (Default Rate)"
+                    print(f"[Microphone] Trying index {name}{rate_str}...")
+                    
+                    self.microphone = sr.Microphone(device_index=idx, sample_rate=rate)
+                    
+                    # Fast calibration
+                    with self.microphone as source:
+                        self.recognizer.adjust_for_ambient_noise(source, duration=1.0)
+                    
+                    print(f"✅ Mic Connected on Index {name}{rate_str}")
+                    return True
+                except Exception as e:
+                    # print(f"   Failed index {idx} rate {rate}: {e}")
+                    continue
         
         print("❌ Could not find any working microphone.")
         return False
@@ -109,7 +114,8 @@ class SpeechRecognitionThread(threading.Thread):
                 if not self.stop_event.is_set():
                     time.sleep(0.6)
                     # Force a higher threshold briefly to clear any echo bias
-                    self.recognizer.energy_threshold = max(self.recognizer.energy_threshold, 1500)
+                    # Reduced from 1500 to 300 to avoid being 'deaf'
+                    self.recognizer.energy_threshold = max(self.recognizer.energy_threshold, 300)
 
                 with self.microphone as source:
                     # Only adjust for noise if we aren't already in conversation

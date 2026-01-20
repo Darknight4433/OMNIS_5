@@ -34,27 +34,47 @@ class MemoryManager:
             )
         ''')
         
+        # Migration: Add 'permanent' column if it doesn't exist
+        try:
+            cursor.execute("ALTER TABLE conversation_history ADD COLUMN permanent INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass # Column likely already exists
+            
         conn.commit()
         conn.close()
 
-    def add_conversation(self, user_id, user_msg, ai_msg):
-        """Add a round of conversation to history."""
+    def add_conversation(self, user_id, user_msg, ai_msg, permanent=False):
+        """Add a round of conversation to history.
+           permanent: If True, this entry will not be forgotten after 4 hours.
+        """
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
+        is_perm = 1 if permanent else 0
         cursor.execute(
-            "INSERT INTO conversation_history (timestamp, user_id, user_message, ai_message) VALUES (?, ?, ?, ?)",
-            (time.time(), user_id, user_msg, ai_msg)
+            "INSERT INTO conversation_history (timestamp, user_id, user_message, ai_message, permanent) VALUES (?, ?, ?, ?, ?)",
+            (time.time(), user_id, user_msg, ai_msg, is_perm)
         )
         conn.commit()
         conn.close()
 
-    def get_recent_history(self, user_id, limit=5):
-        """Get the last N exchanges for a user."""
+    def get_recent_history(self, user_id, limit=10):
+        """Get the last N exchanges for a user within 4 hours, or if marked permanent."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
+        
+        # 4 Hours in seconds
+        cutoff_time = time.time() - (4 * 3600)
+        
         cursor.execute(
-            "SELECT user_message, ai_message FROM conversation_history WHERE user_id = ? ORDER BY timestamp DESC LIMIT ?",
-            (user_id, limit)
+            """
+            SELECT user_message, ai_message 
+            FROM conversation_history 
+            WHERE user_id = ? 
+            AND (timestamp > ? OR permanent = 1)
+            ORDER BY timestamp DESC 
+            LIMIT ?
+            """,
+            (user_id, cutoff_time, limit)
         )
         rows = cursor.fetchall()
         conn.close()
