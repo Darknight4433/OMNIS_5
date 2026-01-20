@@ -64,7 +64,7 @@ class UIManager:
 
     def draw_subtitles(self, img, user_text=None, ai_text=None):
         """
-        Draws subtitles at the bottom of the camera feed with transparency and clamping.
+        Draws multi-line subtitles at the bottom of the camera feed.
         """
         if user_text:
             self.last_subtitle = f"You: {user_text}"
@@ -74,53 +74,61 @@ class UIManager:
             self.last_subtitle = f"OMNIS: {ai_text}"
             self.subtitle_timer = time.time() + self.SUBTITLE_DURATION
             
-        # Check expiry
         if time.time() > self.subtitle_timer:
-            return # Expired
+            return
 
         text = self.last_subtitle
-        
-        # Overlay parameters
-        overlay = img.copy()
-        font_scale = 0.7
-        thickness = 1 # Thinner stroke for cleaner look
-        padding = 10
-        
-        # Calculate visual bounds (Camera area)
         cam_x, cam_y, cam_w, cam_h = 55, 162, 640, 480
+        font_scale = 0.65
+        thickness = 1
+        padding = 10
+        max_width = cam_w - (padding * 4)
         
-        # Get text size
-        (tw, th), baseline = cv2.getTextSize(text, self.font, font_scale, thickness)
+        # --- Multi-line Wrapping Logic ---
+        words = text.split(' ')
+        lines = []
+        current_line = ""
         
-        # Smart Center (Clamp to edges)
-        cx = cam_x + (cam_w // 2)
-        tx = cx - (tw // 2)
-        
-        # Clamp Left
-        if tx < cam_x + 10: tx = cam_x + 10
-        # Clamp Right (if text is too wide, this might push it left, effectively 'right aligning' to the edge)
-        if tx + tw > cam_x + cam_w - 10: 
-            # If text is REALLY too big, we might need to truncate
-            if tw > cam_w - 20:
-                # Simple truncation
-                while tw > cam_w - 20 and len(text) > 0:
-                     text = text[:-1]
-                     (tw, th), _ = cv2.getTextSize(text, self.font, font_scale, thickness)
-                tx = cam_x + 10
+        for word in words:
+            test_line = current_line + " " + word if current_line else word
+            (tw, th), _ = cv2.getTextSize(test_line, self.font, font_scale, thickness)
+            
+            if tw <= max_width:
+                current_line = test_line
             else:
-                tx = cam_x + cam_w - 10 - tw
+                lines.append(current_line)
+                current_line = word
+        lines.append(current_line)
         
-        ty = cam_y + cam_h - 30 # 30 px from bottom of camera frame
+        # Calculate total height for background box
+        (tw_sample, th_sample), baseline = cv2.getTextSize("Ay", self.font, font_scale, thickness)
+        line_height = th_sample + padding
+        total_h = len(lines) * line_height
         
-        # Draw Semi-Transparent Box
-        # box coords: (x1, y1), (x2, y2)
-        cv2.rectangle(overlay, (tx - padding, ty - th - padding), (tx + tw + padding, ty + padding), (0, 0, 0), -1)
+        # Draw from bottom up
+        base_ty = cam_y + cam_h - 40
         
-        alpha = 0.6
+        # Create overlay for transparency
+        overlay = img.copy()
+        
+        for i, line in enumerate(reversed(lines)):
+            (tw, th), _ = cv2.getTextSize(line, self.font, font_scale, thickness)
+            tx = cam_x + (cam_w // 2) - (tw // 2)
+            ty = base_ty - (i * line_height)
+            
+            # Background Rect
+            cv2.rectangle(overlay, (tx - padding, ty - th - padding), (tx + tw + padding, ty + padding // 2), (0, 0, 0), -1)
+            
+        # Apply transparency
+        alpha = 0.65
         cv2.addWeighted(overlay, alpha, img, 1 - alpha, 0, img)
         
-        # Draw Text
-        cv2.putText(img, text, (tx, ty), self.font, font_scale, (255, 255, 255), thickness, cv2.LINE_AA)
+        # Draw actual text on top
+        for i, line in enumerate(reversed(lines)):
+            (tw, th), _ = cv2.getTextSize(line, self.font, font_scale, thickness)
+            tx = cam_x + (cam_w // 2) - (tw // 2)
+            ty = base_ty - (i * line_height)
+            cv2.putText(img, line, (tx, ty), self.font, font_scale, (255, 255, 255), thickness, cv2.LINE_AA)
 
     def draw_face_box(self, img, bbox, name="Unknown", is_known=False):
         """
