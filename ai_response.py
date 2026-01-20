@@ -320,6 +320,7 @@ def get_chat_response_stream(payload: str, user_id: str = "Unknown"):
             return
 
         except Exception as e:
+            print(f"DEBUG: Streaming Error: {e}")
             err_str = str(e).lower()
             if "quota" in err_str or "429" in err_str:
                 current_key_index = (current_key_index + 1) % len(API_KEYS)
