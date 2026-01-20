@@ -261,24 +261,15 @@ def get_chat_response_stream(payload: str, user_id: str = "Unknown"):
     enhanced_system_prompt = f"{SYSTEM_PROMPT}{persona_prompt}{time_context}\n{facts_context}\nYou are talking to {user_id}."
     full_prompt = f"{enhanced_system_prompt}\n{history_context}\nUser: {payload}"
 
-    # 1. Expanded list of model variants to try
-    models_to_try = [
-        'gemini-1.5-flash-8b',
+    models_to_try_base = [
         'gemini-1.5-flash',
+        'gemini-1.5-flash-latest',
+        'gemini-1.5-flash-8b',
         'gemini-2.0-flash',
-        'gemini-1.5-pro'
+        'gemini-1.5-pro',
+        'gemini-1.5-pro-latest'
     ]
     
-    # 2. Add automatic discovery as a fallback
-    try:
-        discovered = [m.name.split('/')[-1] for m in genai.list_models() 
-                     if 'generateContent' in m.supported_generation_methods]
-        for d in discovered:
-            if d not in models_to_try:
-                models_to_try.append(d)
-    except:
-        pass
-
     max_retries = len(API_KEYS)
     retries = 0
     full_text = ""
@@ -286,13 +277,28 @@ def get_chat_response_stream(payload: str, user_id: str = "Unknown"):
     while retries < max_retries:
         key = API_KEYS[current_key_index]
         success = False
-        
+
+        # 1. Automatic model discovery for this specific key
+        models_to_try = list(models_to_try_base)
+        try:
+            genai.configure(api_key=key)
+            discovered = [m.name for m in genai.list_models() 
+                         if 'generateContent' in m.supported_generation_methods]
+            for d in reversed(discovered):
+                short_name = d.split('/')[-1]
+                if short_name not in models_to_try: models_to_try.insert(0, short_name)
+                if d not in models_to_try: models_to_try.insert(0, d)
+        except Exception as e:
+            if retries == 0: 
+                print(f"   [Key {current_key_index+1}] Note: Could not list models (might be an old library version).")
+                print(f"   Tip: Try running 'pip install --upgrade google-generativeai' on your Pi.")
+
         for model_name in models_to_try:
             try:
                 genai.configure(api_key=key)
                 model = genai.GenerativeModel(model_name)
                 
-                print(f"   [Model {model_name}] Discovering availability...")
+                print(f"   [Model {model_name}] Trying...")
                 
                 # Try Streaming First
                 response = model.generate_content(
