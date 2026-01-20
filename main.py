@@ -273,12 +273,18 @@ def main():
                                 speech_thread.daemon = True
                                 speech_thread.start()
                             except: pass
+                        
+                        # Enable conversation mode so user doesn't need to say "OMNIS" to reply to greeting
+                        if speech_thread:
+                            speech_thread.conversation_active = True
 
                 elif current_faces:
                     # Case 2: No known person, but FACES are present -> Greet Unknown
                     if greeter.should_greet("Unknown"):
                         msg = greeter.get_unknown_greeting()
                         speak(msg)
+                        if speech_thread:
+                            speech_thread.conversation_active = True
 
             # --- UI UPDATES (Status & Subtitles) ---
             

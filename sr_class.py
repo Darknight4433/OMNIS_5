@@ -37,12 +37,11 @@ class SpeechRecognitionThread(threading.Thread):
         self.is_listening = False  # New flag for UI
         self.microphone = None
         self.conversation_timeout = 15
-        
         env_wake = os.environ.get('WAKE_WORDS')
         if env_wake:
             self.wake_words = [w.strip().lower() for w in env_wake.split(',') if w.strip()]
         else:
-            self.wake_words = ['omnis', 'hello']
+            self.wake_words = ['omnis', 'hello', 'hey', 'amaze', 'thomas', 'promise', 'homeless', 'harness', 'almonds', 'omni']
         self.recognizer = sr.Recognizer()
         # SUPER SENSITIVITY SETTINGS
         self.recognizer.energy_threshold = 300  # Start lower (sensitive)
