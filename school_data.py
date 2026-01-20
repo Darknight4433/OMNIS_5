@@ -13,10 +13,11 @@ SCHOOL_INFO = {
     "founder": "Dr P K Sukumaran",
     "tagline": "Satyameya Jayate",
     "vision": "To Develop Global Citizens, with indian values, capable of transforming every indian to lead a generous, empathetic and fulfilled life",
-    "total_students": 2900,
+    "total_students": 3000,
     "total_staff": 250,
     "sister_school": "KPM Model School",
     "starting_students": 5,
+    "history": "The school was started because Sree Narayana Guru observed that this location had great potential for education and suggested building a school here. It began with just 5 students, one of whom was our current principal, Dr Pooja S.",
 }
 
 # School Rules - UK Style + MGM Rules
@@ -100,6 +101,12 @@ CUSTOM_QA = {
     "Who is the principal?": "Dr Pooja S is our principal. Office hours are 8:30 AM to 4:00 PM.",
     "How do I contact the school?": "Call the main office or visit the school during office hours. Email queries can be sent to the school website.",
     "Is there a school counselor?": "Yes, a qualified counselor is available for student support, academic guidance, and personal counseling.",
+    
+    # SCHOOL HISTORY & ORIGINS
+    "Why was the school started?": "The school was founded because the great saint Sree Narayana Guru noted that this specific place had immense potential for education and suggested establishing a school here.",
+    "Who said this place had potential for education?": "Sree Narayana Guru originally stated that this location was ideal for education, leading to the creation of MGM Model School.",
+    "Who were the first students of MGM?": "MGM started with 5 students, and one of them was our current principal, Dr Pooja S.",
+    "Was the principal a student here?": "Yes! Our current principal, Dr Pooja S, was one of the first five students when the school originally started.",
 }
 
 # ============================================
@@ -132,7 +139,9 @@ METADATA = [
     {'answer': "Satyameya Jayate", 'question_data': ['tagline', 'mgm', 'tag', 'line', 'what']},
     {'answer': "We have two hundred and fifty employees", 'question_data': ['how', 'many', 'employees', 'have']},
     {'answer': "Digital library, Maths 3d corner, Maths innovation center, Globe, Basket ball court, Butterfly garden, and one yoga period for class one to eighth", 
-     'question_data': ['what', 'facilities', 'infrastructure', 'provided', 'mgm']}
+     'question_data': ['what', 'facilities', 'infrastructure', 'provided', 'mgm']},
+    {'answer': "Sree Narayana Guru said this place has the potential for education, which led to building this school.", 'question_data': ['why', 'start', 'started', 'guru', 'potential']},
+    {'answer': "We started with 5 students, including our current principal, Dr Pooja Mam.", 'question_data': ['first', 'students', 'pooja', 'mam', 'principal']}
 ]
 
 def get_school_answer(question: str, accuracy: float = 0.6):
