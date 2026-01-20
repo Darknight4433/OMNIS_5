@@ -1,9 +1,16 @@
 
 # OMNIS API Configuration
 
-# 1. Gemini API Key (BRAIN)
+# 1. Gemini API Keys (BRAIN)
 # Get one here: https://makersuite.google.com/app/apikey
-GEMINI_KEY = 'PLACE_YOUR_GEMINI_KEY_HERE' 
+# Add multiple keys in the list to enable auto-rotation if quota is exceeded
+GEMINI_KEYS = [
+    'PLACE_YOUR_GEMINI_KEY_1_HERE', 
+    'PLACE_YOUR_GEMINI_KEY_2_HERE',
+]
+
+# Legacy single key support (Optional, will be added to the list above)
+GEMINI_KEY = '' 
 
 # 2. ElevenLabs API Keys (VOICE)
 ELEVENLABS_KEYS = [

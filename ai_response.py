@@ -31,6 +31,12 @@ if env_key and env_key not in API_KEYS:
 
 try:
     import secrets_local
+    # 1. Check for Key List (New Method)
+    if hasattr(secrets_local, 'GEMINI_KEYS'):
+        for k in secrets_local.GEMINI_KEYS:
+            if k and k not in API_KEYS: API_KEYS.append(k)
+            
+    # 2. Check for Single Key (Legacy Method)
     legacy_key = getattr(secrets_local, 'GEMINI_KEY', None)
     if legacy_key and legacy_key not in API_KEYS:
         API_KEYS.append(legacy_key)
