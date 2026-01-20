@@ -269,66 +269,71 @@ def get_chat_response_stream(payload: str, user_id: str = "Unknown"):
     
     while retries < max_retries:
         key = API_KEYS[current_key_index]
-        try:
-            genai.configure(api_key=key)
-            model = genai.GenerativeModel(models_to_try[0])
-            
-            response = model.generate_content(
-                full_prompt,
-                stream=True,
-                generation_config=genai.types.GenerationConfig(
-                    max_output_tokens=MAX_TOKENS,
-                    temperature=TEMPERATURE,
+        success = False
+        
+        for model_name in models_to_try:
+            try:
+                genai.configure(api_key=key)
+                model = genai.GenerativeModel(model_name)
+                
+                response = model.generate_content(
+                    full_prompt,
+                    stream=True,
+                    generation_config=genai.types.GenerationConfig(
+                        max_output_tokens=MAX_TOKENS,
+                        temperature=TEMPERATURE,
+                    )
                 )
-            )
-            
-            sentence_buffer = ""
-            for chunk in response:
-                if not chunk.text: continue
                 
-                text = chunk.text
-                full_text += text
-                sentence_buffer += text
+                sentence_buffer = ""
+                for chunk in response:
+                    try:
+                        if not chunk.text: continue
+                        text = chunk.text
+                    except ValueError:
+                        # This happens if the chunk was blocked
+                        continue
+                        
+                    full_text += text
+                    sentence_buffer += text
+                    
+                    if any(term in sentence_buffer for term in [". ", "! ", "? ", "\n"]):
+                        parts = re.split(r'(?<=[.!?\n]) ', sentence_buffer)
+                        if len(parts) > 1:
+                            for p in parts[:-1]:
+                                p_clean = re.sub(r'^(\s*AI\s*:?|\s*OMNIS\s*:?)+', '', p, flags=re.IGNORECASE).strip()
+                                if p_clean: yield p_clean
+                            sentence_buffer = parts[-1]
                 
-                # Check for end of sentence
-                if any(term in sentence_buffer for term in [". ", "! ", "? ", "\n"]):
-                    # Split sentences
-                    # Use re to keep the punctuation
-                    parts = re.split(r'(?<=[.!?\n]) ', sentence_buffer)
-                    if len(parts) > 1:
-                        for p in parts[:-1]:
-                            p_clean = re.sub(r'^(\s*AI\s*:?|\s*OMNIS\s*:?)+', '', p, flags=re.IGNORECASE).strip()
-                            if p_clean: yield p_clean
-                        sentence_buffer = parts[-1]
-            
-            # Final yield
-            if sentence_buffer.strip():
-                p_clean = re.sub(r'^(\s*AI\s*:?|\s*OMNIS\s*:?)+', '', sentence_buffer, flags=re.IGNORECASE).strip()
-                if p_clean: yield p_clean
+                if sentence_buffer.strip():
+                    p_clean = re.sub(r'^(\s*AI\s*:?|\s*OMNIS\s*:?)+', '', sentence_buffer, flags=re.IGNORECASE).strip()
+                    if p_clean: yield p_clean
                 
-            # --- SUCCESS! Save memory ---
+                success = True
+                break # Model loop success
+
+            except Exception as e:
+                err_str = str(e).lower()
+                if "quota" in err_str or "429" in err_str:
+                    # Don't try other models with this key if quota exceeded
+                    break 
+                elif "not found" in err_str or "invalid" in err_str:
+                    continue # Try next model
+                else: 
+                    print(f"DEBUG: Model Error: {e}")
+                    break
+        
+        if success:
+            # --- SAVE TO MEMORY ---
             clean_full = full_text.replace('*', '').replace('#', '').strip()
             clean_full = re.sub(r'^(\s*AI\s*:?|\s*OMNIS\s*:?)+', '', clean_full, flags=re.IGNORECASE).strip()
-            
-            # Simple fact extraction 
-            if "my favorite" in payload.lower() and "is" in payload.lower():
-                 try:
-                    parts = payload.lower().split("my favorite")[1].split("is")
-                    memory.store_fact(user_id, parts[0].strip(), parts[1].strip().rstrip(".!?"))
-                 except: pass
-
             memory.add_conversation(user_id, payload, clean_full)
             return
 
-        except Exception as e:
-            print(f"DEBUG: Streaming Error: {e}")
-            err_str = str(e).lower()
-            if "quota" in err_str or "429" in err_str:
-                current_key_index = (current_key_index + 1) % len(API_KEYS)
-                retries += 1
-                continue
-            else:
-                break
+        # Advance key
+        current_key_index = (current_key_index + 1) % len(API_KEYS)
+        retries += 1
+
     
     yield "I'm having a bit of trouble thinking right now. Please try again."
 
