@@ -81,3 +81,46 @@ def get_school_response(question: str) -> str:
                 return ans
     
     return "I don't have that information."
+
+
+def get_school_answer_enhanced(question: str) -> str:
+    """
+    Enhanced version of get_school_response for sr_class.py compatibility.
+    Returns answer only if there's a confident match (score > 1).
+    
+    Args:
+        question: The question asked by the user
+        
+    Returns:
+        str: The answer if confident match found, else empty string (triggers AI fallback)
+    """
+    if not question:
+        return ""
+    
+    # Convert question to lowercase for matching
+    question_lower = question.lower()
+    question_words = set(question_lower.split())
+    
+    # Find matching metadata entry
+    best_match = None
+    best_score = 0
+    
+    for entry in SCHOOL_METADATA:
+        question_data = entry.get('question_data', [])
+        # Count how many keywords match
+        match_score = len([word for word in question_data if word.lower() in question_words])
+        
+        if match_score > best_score:
+            best_score = match_score
+            best_match = entry
+    
+    # Return answer only if we have a confident match (at least 2 keywords)
+    if best_match and best_score > 1:
+        answers = best_match.get('answer', [])
+        # Return first non-None answer
+        for ans in answers:
+            if ans is not None:
+                return ans
+    
+    # Return empty string to trigger AI fallback
+    return ""
