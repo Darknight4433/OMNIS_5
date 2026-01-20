@@ -5,8 +5,11 @@
 # Get one here: https://makersuite.google.com/app/apikey
 # Add multiple keys in the list to enable auto-rotation if quota is exceeded
 GEMINI_KEYS = [
-    'PLACE_YOUR_GEMINI_KEY_1_HERE', 
-    'PLACE_YOUR_GEMINI_KEY_2_HERE',
+    'AIzaSyCqNGHngFRyQ9m2kPgW758CzmayYlF3sDw',
+    'AIzaSyADw2SLTa-ar2vd2Kd926ystf-Lu_7OG1k',
+    'AIzaSyDwpZYl8Q5N8WJC1Yca7O2ofLhOrU2n7kw',
+    'AIzaSyA_8pRGgOtMyEu9LBZx8DTcfGhzvLHB9As',
+    'AIzaSyDTffcnokNC4r74B4K6MKYwQ-RbrBzXIWU'
 ]
 
 # Legacy single key support (Optional, will be added to the list above)
