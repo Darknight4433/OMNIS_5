@@ -17,6 +17,7 @@ SCHOOL_METADATA = [
     {'answer': ["Dr P K Sukumaran"], 'question_data': ['who', 'founded', 'mgm']},
     {'answer': ["Nitya haritha nayakan mister Prem nasir"], 'question_data': ['foundation', 'stone', 'foundation stone', 'laid']},
     {'answer': ['Dr Pooja S'], 'question_data': ['our', 'principal']},
+    {'answer': ["Mr Unnikrishnan Vishakam"], 'question_data': ['who', 'pta', 'president', 'mgm']},
     {'answer': ['Ms Lalitha'], 'question_data': ['who', 'first', 'principal', 'of', 'mgm']},
     {'answer': ['we have three digital libraries'], 'question_data': ['many', 'digital', 'library', 'libraries']},
     {'answer': ["Dr A P J Abdul Kalam"], 'question_data': ['Name', 'President', 'visit', 'mgm']},
