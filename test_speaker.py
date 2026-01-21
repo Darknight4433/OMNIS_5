@@ -1,35 +1,28 @@
-
-import time
-import sys
 import os
+import sys
+import time
 
-# Add current directory to path so we can import 'speaker'
-sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
-
-try:
-    from speaker import speak, is_speaking
+def test_speaker():
+    print("========================================")
+    print("Testing Speaker on Card 2 (USB PnP)")
+    print("========================================")
     
-    print("🔊 Starting Speaker Test...")
-    print("Be ready to hear OMNIS talk!")
+    # -D plughw:2,0 : Device Card 2, Subdevice 0
+    cmd = "speaker-test -D plughw:2,0 -c2 -t wav -l1"
     
-    test_phrase = "Hello! I am OMNIS. My speaker system is working perfectly on this Raspberry Pi."
+    print(f"Running command: {cmd}")
+    print("Listen for 'Front Left' and 'Front Right'...")
     
-    print(f"Queueing: '{test_phrase}'")
-    speak(test_phrase)
+    # Kill pulseaudio briefly if it locks the device
+    print("\n[Optional] If this fails, we may need to run 'pulseaudio -k' first.")
     
-    # Wait for it to start speaking
-    timeout = 10 # 10 seconds wait for gTTS and init
-    start_wait = time.time()
-    while not is_speaking() and (time.time() - start_wait < timeout):
-        time.sleep(0.1)
-        
-    if is_speaking():
-        print("✅ Speaker is active and playing...")
-        while is_speaking():
-            time.sleep(0.5)
-        print("✅ Speaker finished successfully.")
+    ret = os.system(cmd)
+    
+    if ret == 0:
+        print("\n✅ SUCCESS! Speaker is working on Card 2.")
     else:
-        print("❌ Timeout: Speaker never started. Check your audio settings or internet connection for gTTS.")
+        print(f"\n❌ Failed. Error code: {ret}")
+        print("Try running: pulseaudio -k && speaker-test -D plughw:2,0 -c2 -t wav -l1")
 
-except Exception as e:
-    print(f"❌ Error during speaker test: {e}")
+if __name__ == "__main__":
+    test_speaker()
