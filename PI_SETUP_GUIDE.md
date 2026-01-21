@@ -110,7 +110,6 @@ alsamixer
 # Use arrow keys to adjust, ESC to exit
 
 # Test speaker
-speaker-test -t wav -c 2
 # Press Ctrl+C to stop
 ```
 
