@@ -127,8 +127,11 @@ def split_text_to_sentences(text):
 
 def speak_offline(text):
     try:
+        import audio_config
+        card_index = getattr(audio_config, 'SPEAKER_CARD_INDEX', 1)
         v = getattr(shared_state, 'current_voice_settings', {"pitch": 50, "speed": 175})
-        os.system(f"espeak-ng -s {v.get('speed', 160)} -p {v.get('pitch', 50)} '{text}' > /dev/null 2>&1")
+        # Use -a to specify card for espeak-ng
+        os.system(f"espeak-ng -a {card_index} -s {v.get('speed', 160)} -p {v.get('pitch', 50)} '{text}' > /dev/null 2>&1")
         return True
     except: return False
 
@@ -184,7 +187,8 @@ class GTTSThread(threading.Thread):
                 try:
                     import audio_config
                     card_index = getattr(audio_config, 'SPEAKER_CARD_INDEX', 1)
-                    device_str = f"hw:{card_index},0"
+                    # Using plughw for better compatibility with different sample rates
+                    device_str = f"plughw:{card_index},0"
                     
                     played = False
                     if os.name != 'nt':

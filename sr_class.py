@@ -147,7 +147,9 @@ class SpeechRecognitionThread(threading.Thread):
 
                     try:
                         # Play a tiny start-listening blip (ALSA default)
-                        os.system("aplay -q /usr/share/sounds/alsa/Front_Left.wav --duration=0.1 > /dev/null 2>&1")
+                        import audio_config
+                        card_idx = getattr(audio_config, 'SPEAKER_CARD_INDEX', 1)
+                        os.system(f"aplay -q -D plughw:{card_idx},0 /usr/share/sounds/alsa/Front_Left.wav --duration=0.1 > /dev/null 2>&1")
                     except: pass
 
                     try:
@@ -213,7 +215,9 @@ class SpeechRecognitionThread(threading.Thread):
                                  # Standard wake word response
                                  # Play a tiny ACK blip
                                  try:
-                                    os.system("aplay -q /usr/share/sounds/alsa/Front_Center.wav --duration=0.1 > /dev/null 2>&1")
+                                    import audio_config
+                                    card_idx = getattr(audio_config, 'SPEAKER_CARD_INDEX', 1)
+                                    os.system(f"aplay -q -D plughw:{card_idx},0 /usr/share/sounds/alsa/Front_Center.wav --duration=0.1 > /dev/null 2>&1")
                                  except: pass
                                  pass 
 
