@@ -32,7 +32,7 @@ class GreetingManager:
         self.nicknames = {
             "Vaishnavi": "vaaish",
             "Pooja": "Mam",
-            "Sukumaran": "sir",
+            "PK Sukumaran Sir": "Sukumaran Sir",
             "Deva Nandan": "Deva",
         }
         
