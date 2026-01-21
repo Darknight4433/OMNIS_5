@@ -22,7 +22,7 @@ SCHOOL_METADATA = [
     {'answer': ['we have three digital libraries'], 'question_data': ['many', 'digital', 'library', 'libraries']},
     {'answer': ["Dr A P J Abdul Kalam"], 'question_data': ['Name', 'President', 'visit', 'mgm']},
     {'answer': ["To Develop Global Citizens, with indian values, capable of transforming every indian to lead a generous, empathetic and fulfilled life"], 
-        'question_data': ['vision', 'our', 'school']},
+        'question_data': ['vision', 'our', 'school', 'mgm']},
     {'answer': ['two thousand nine hundred'], 'question_data': ['many', 'students', 'have']},
     {'answer': ["Nineteen eighty three"], 'question_data': ['mgm', 'mgm model school', 'start', 'started', 'year']},
     {'answer': ["KPM model school", "mayyanad"], 'question_data': ['sister', 'sister concern', 'school' 'mgm']},

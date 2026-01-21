@@ -22,7 +22,7 @@ except ImportError:
 from memory_manager import MemoryManager
 
 # --- CONFIGURATION ---
-MAX_TOKENS = 400  # Increased for fuller responses (was 300)
+MAX_TOKENS = 1200  # Increased to prevent response cutoff
 TEMPERATURE = 0.7 
 SYSTEM_PROMPT = (
     "You are OMNIS, a friendly and lifelike school robot from MGM Model School. "
