@@ -1,38 +1,56 @@
 import os
-import sys
-import time
+import subprocess
+import re
 
 def test_speaker():
     print("========================================")
-    print("Testing Speaker on Card 3 (plughw:3,0)")
+    print("      OMNIS Audio Diagnostic Tool")
     print("========================================")
     
-    # Command to test stereo sound on card 3 using speaker-test
-    # -D plughw:3,0 : Device Card 3, Subdevice 0 (with plug plugin for format conversion)
-    # -c2 : 2 Channels
-    # -t wav : Play a wav file (voice)
-    # -l1 : Loop 1 time
-    cmd = "speaker-test -D plughw:3,0 -c2 -t wav -l1"
+    # 1. List cards
+    print("\n[1] Checking available audio cards...")
+    os.system("aplay -l")
     
-    print(f"Running command: {cmd}")
-    print("Listen for 'Front Left' and 'Front Right'...")
+    # 2. Try various device strings for Card 3
+    # Error 524 often means the device is busy or format not supported by that specific string
+    test_strings = [
+        "plughw:3,0",
+        "sysdefault:CARD=3",
+        "hw:3,0",
+        "dmix:CARD=3"
+    ]
     
-    # Using timeout to ensure it doesn't get stuck if something is wrong
-    # 'timeout' command might not be on all windows/minimal linux, but standard on Pi
-    full_cmd = f"timeout 5 {cmd}"
+    print("\n[2] Testing different connection strings for Card 3...")
     
-    ret = os.system(full_cmd)
-    
-    if ret == 0:
-        print("\n✅ Command executed successfully.")
-    else:
-        print(f"\n❌ Command failed with return code {ret}.")
-        print("Try running manually: speaker-test -D plughw:3,0 -c2 -t wav")
+    found_working = False
+    for ds in test_strings:
+        print(f"\n--- Testing: {ds} ---")
+        # -l 1: play once, -t wav: use voice, -c 2: stereo
+        cmd = f"speaker-test -D {ds} -c2 -t wav -l1"
+        ret = os.system(f"timeout 4 {cmd}")
+        
+        if ret == 0:
+            print(f"✅ SUCCESS with {ds}!")
+            found_working = ds
+            break
+        else:
+            print(f"❌ Failed with {ds} (Return code: {ret})")
 
-    print("\n========================================")
-    print("To use 'espeak' on card 3:")
-    print("espeak -a 3 'Hello world, this is card three'")
-    print("========================================")
+    if found_working:
+        print("\n" + "="*40)
+        print(f"RECOMMENDED SETTING: {found_working}")
+        print("="*40)
+        
+        # Proactively update audio_config if we found a better string
+        if "sysdefault" in found_working:
+             print("Note: You might need to update speaker.py to use sysdefault instead of plughw.")
+    else:
+        print("\n❌ All Card 3 tests failed.")
+        print("Possible reasons:")
+        print("1. Card 3 is actually not the correct index (Check aplay -l above).")
+        print("2. Another program (PulseAudio?) is locking the device.")
+        print("3. The USB device is not getting enough power.")
+        print("\nTry running: fuser -v /dev/snd/*")
 
 if __name__ == "__main__":
     test_speaker()
