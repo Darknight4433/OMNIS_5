@@ -192,20 +192,47 @@ class GTTSThread(threading.Thread):
                     
                     played = False
                     if os.name != 'nt':
-                        res = os.system(f"mpg123 -q -a {device_str} {fn} > /dev/null 2>&1")
-                        if res == 0: played = True
+                        # Try mpg123 first - it's more reliable for ALSA devices
+                        # Redirect both stdout and stderr to suppress ALSA warnings
+                        import subprocess
+                        try:
+                            result = subprocess.run(
+                                ['mpg123', '-q', '-a', device_str, fn],
+                                stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL,
+                                timeout=30
+                            )
+                            if result.returncode == 0:
+                                played = True
+                        except (subprocess.TimeoutExpired, FileNotFoundError):
+                            pass
 
                     if not played:
-                        if not pygame.mixer.get_init():
-                            pygame.mixer.init(frequency=22050, size=-16, channels=2, buffer=4096)
-                        pygame.mixer.music.load(fn)
-                        pygame.mixer.music.play()
-                        while pygame.mixer.music.get_busy() and not _stop_requested: time.sleep(0.05)
-                        if _stop_requested: pygame.mixer.music.stop()
-                        if hasattr(pygame.mixer.music, 'unload'): pygame.mixer.music.unload()
+                        # Fallback to pygame if mpg123 fails
+                        try:
+                            if not pygame.mixer.get_init():
+                                # Initialize pygame mixer with ALSA-friendly settings
+                                pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=2048)
+                            pygame.mixer.music.load(fn)
+                            pygame.mixer.music.play()
+                            while pygame.mixer.music.get_busy() and not _stop_requested: 
+                                time.sleep(0.05)
+                            if _stop_requested: 
+                                pygame.mixer.music.stop()
+                            if hasattr(pygame.mixer.music, 'unload'): 
+                                pygame.mixer.music.unload()
+                            played = True
+                        except Exception as pygame_error:
+                            print(f"Pygame playback failed: {pygame_error}")
 
-                    if os.path.exists(fn): os.remove(fn)
-                except Exception as e: print(f"Play Error: {e}")
+                    if os.path.exists(fn): 
+                        try:
+                            os.remove(fn)
+                        except:
+                            pass
+                            
+                except Exception as e: 
+                    print(f"Play Error: {e}")
             else:
                 self.lock.acquire()
                 if not self.pending_queue and not self.playback_queue and not self.is_generating:

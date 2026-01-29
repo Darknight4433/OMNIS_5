@@ -48,16 +48,68 @@ except Exception as e:
     imgBackground = np.zeros((720, 1280, 3), np.uint8) # Fallback black screen
     imgModeList = []
 
+# Suppress ALSA/Jack errors
+try:
+    from ctypes import *
+    from contextlib import contextmanager
+    
+    ERROR_HANDLER_FUNC = CFUNCTYPE(None, c_char_p, c_int, c_char_p, c_int, c_char_p)
+    def py_error_handler(filename, line, function, err, fmt):
+        pass
+    c_error_handler = ERROR_HANDLER_FUNC(py_error_handler)
+    asound = cdll.LoadLibrary('libasound.so')
+    asound.snd_lib_error_set_handler(c_error_handler)
+except:
+    pass
+
 # Load Encodings
 print("Loading Encoded File...")
+encode_list_known, studentIds = [], []
+encoding_path = r'images/encoded_file.p'
+
 try:
-    with open(r'images/encoded_file.p', 'rb') as f:
+    with open(encoding_path, 'rb') as f:
         encode_list_known_with_ids = pickle.load(f)
     encode_list_known, studentIds = encode_list_known_with_ids
     print(f"Loaded {len(studentIds)} people.")
 except Exception as e:
-    print(f"Error loading encodings: {e}")
-    encode_list_known, studentIds = [], []
+    print(f"⚠️ Error loading encodings ({e}). Attempting to regenerate...")
+    try:
+        # Fallback: Regenerate encodings on the fly
+        faces_dir = 'images/faces'
+        if os.path.exists(faces_dir):
+            path_list = os.listdir(faces_dir)
+            temp_ids = []
+            temp_encodings = []
+            
+            for path in path_list:
+                if path.lower().endswith(('.png', '.jpg', '.jpeg')):
+                    img_path = os.path.join(faces_dir, path)
+                    img = cv2.imread(img_path)
+                    if img is not None:
+                        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                        encs = face_recognition.face_encodings(img)
+                        if encs:
+                            temp_encodings.append(encs[0])
+                            temp_ids.append(os.path.splitext(path)[0])
+                            print(f"  - Re-encoded: {path}")
+            
+            encode_list_known = temp_encodings
+            studentIds = temp_ids
+            
+            # Save for next time
+            if encode_list_known:
+                with open(encoding_path, 'wb') as f:
+                    pickle.dump([encode_list_known, studentIds], f)
+                print(f"✅ Successfully regenerated and saved {len(studentIds)} encodings.")
+            else:
+                print("⚠️ No valid faces found to encode.")
+        else:
+            print(f"❌ Faces directory '{faces_dir}' not found.")
+            
+    except Exception as regen_error:
+        print(f"❌ Critical failure regenerating encodings: {regen_error}")
+        encode_list_known, studentIds = [], []
 
 # Reset shared state
 try:
