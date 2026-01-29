@@ -135,6 +135,34 @@ def speak_offline(text):
         return True
     except: return False
 
+# --- DYNAMIC CARD DETECTION ---
+def get_usb_audio_index():
+    try:
+        import subprocess
+        result = subprocess.run(['aplay', '-l'], capture_output=True, text=True)
+        # Look for "USB Audio" or "USB PnP"
+        for line in result.stdout.split('\n'):
+            if "card" in line and ("USB" in line or "UACDemoV1" in line):
+                # Format: card X: ...
+                parts = line.split(':')
+                if len(parts) > 1:
+                    card_part = parts[0] # "card X"
+                    idx = card_part.replace('card', '').strip()
+                    try:
+                        return int(idx)
+                    except:
+                        pass
+    except:
+        pass
+    # Fallback to config or default
+    try:
+        from audio_config import SPEAKER_CARD_INDEX
+        return SPEAKER_CARD_INDEX
+    except:
+        return 1
+
+# ------------------------------
+
 class GTTSThread(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
@@ -185,8 +213,8 @@ class GTTSThread(threading.Thread):
             if fn:
                 _global_speaker_active = True
                 try:
-                    import audio_config
-                    card_index = getattr(audio_config, 'SPEAKER_CARD_INDEX', 1)
+                    # DYNAMICALLY GET CARD INDEX
+                    card_index = get_usb_audio_index()
                     # Using plughw for better compatibility with different sample rates
                     device_str = f"plughw:{card_index},0"
                     
