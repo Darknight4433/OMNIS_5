@@ -7,15 +7,24 @@ import speech_recognition as sr
 
 # --- ALSA SILENCER ---
 # This prevents the massive log spam from ALSA/PortAudio
-ERROR_HANDLER_FUNC = ctypes.CFUNCTYPE(None, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p)
-def py_error_handler(filename, line, function, err, fmt):
-    pass
-
-c_error_handler = ERROR_HANDLER_FUNC(py_error_handler)
-
 try:
-    asound = ctypes.cdll.LoadLibrary('libasound.so.2')
-    asound.snd_lib_error_set_handler(c_error_handler)
+    from ctypes import *
+    from contextlib import contextmanager
+    
+    ERROR_HANDLER_FUNC = CFUNCTYPE(None, c_char_p, c_int, c_char_p, c_int, c_char_p)
+    def py_error_handler(filename, line, function, err, fmt):
+        pass
+    c_error_handler = ERROR_HANDLER_FUNC(py_error_handler)
+    
+    # Try different library names for Raspberry Pi
+    asound = None
+    for lib in ['libasound.so', 'libasound.so.2']:
+        try:
+            asound = cdll.LoadLibrary(lib)
+            asound.snd_lib_error_set_handler(c_error_handler)
+            break
+        except:
+            pass
 except:
     pass
 # ---------------------
@@ -44,11 +53,12 @@ class SpeechRecognitionThread(threading.Thread):
             self.wake_words = ['omnis', 'hello', 'hey', 'amaze', 'thomas', 'promise', 'homeless', 'harness', 'almonds', 'omni']
         self.recognizer = sr.Recognizer()
         # SUPER SENSITIVITY SETTINGS
-        self.recognizer.energy_threshold = 400  # Slightly higher for noisy rooms
+        # PI OPTIMIZATION: Increased to 800-1000 because Pi USB mics are noisy
+        self.recognizer.energy_threshold = 1000 
         self.recognizer.dynamic_energy_threshold = True
-        self.recognizer.pause_threshold = 0.8  # Wait a bit longer for user to finish (was 0.4)
-        self.recognizer.phrase_threshold = 0.3 # default
-        self.recognizer.non_speaking_duration = 0.4 
+        self.recognizer.pause_threshold = 0.8
+        self.recognizer.phrase_threshold = 0.3
+        self.recognizer.non_speaking_duration = 0.5
 
 
     def _open_microphone(self) -> bool:
@@ -59,7 +69,9 @@ class SpeechRecognitionThread(threading.Thread):
             for i, name in enumerate(mics):
                 print(f"  [{i}] {name}")
         except:
-            print("  (Could not list microphones)")
+            pass
+
+        # ... (rest of selection logic unchanged) ...
 
         # On Windows, using default (index=None) is usually best.
         # On Pi, we might need specific indices.
@@ -77,20 +89,22 @@ class SpeechRecognitionThread(threading.Thread):
                 try:
                     name = "Default" if idx is None else str(idx)
                     rate_str = f" @ {rate}Hz" if rate else " (Default Rate)"
-                    print(f"[Microphone] Trying index {name}{rate_str}...")
-
+                    
                     # Force 16000Hz chunking for better recognition
                     self.microphone = sr.Microphone(device_index=idx, sample_rate=16000 if rate is None else rate, chunk_size=1024)
 
                     # Calibration
-                    # Duration 1.0 is more stable than 0.5
+                    print(f"[Microphone] Calibrating index {name}...")
                     with self.microphone as source:
                         self.recognizer.adjust_for_ambient_noise(source, duration=1.0)
+                    
+                    # Prevent calibration from setting it too low
+                    if self.recognizer.energy_threshold < 800:
+                        self.recognizer.energy_threshold = 1000
 
-                    print(f"✅ Mic Connected on Index {name}{rate_str}")
+                    print(f"✅ Mic Connected on Index {name}{rate_str} | Threshold: {self.recognizer.energy_threshold}")
                     return True
                 except Exception as e:
-                    # print(f"   Failed index {idx} rate {rate}: {e}")
                     continue
 
         print("❌ Could not find any working microphone.")
@@ -109,38 +123,27 @@ class SpeechRecognitionThread(threading.Thread):
         timeout_count = 0
         while not self.stop_event.is_set():
             try:
-                # 1. Wait if speaking BEFORE opening the mic
+                # 1. Wait if speaking BEFORE opening the mic (Echo Cancellation)
                 while is_speaking() and not self.stop_event.is_set():
-                    # Reduced poll time from 0.5 to 0.1 for better responsiveness
                     time.sleep(0.1)
                 
                 # Small protective delay so it doesn't hear the end of its own voice
                 if not self.stop_event.is_set():
-                    time.sleep(0.6)
-                    # Force a higher threshold briefly to clear any echo bias
-                    # Reduced from 1500 to 300 to avoid being 'deaf'
-                    self.recognizer.energy_threshold = max(self.recognizer.energy_threshold, 300)
+                    time.sleep(0.5) 
 
                 with self.microphone as source:
                     # Only adjust for noise if we aren't already in conversation
-                    # or do it quickly to avoid missing the user
-                    if not self.conversation_active:
-                        # Only adjust if energy threshold is too low or not set
-                        if self.recognizer.energy_threshold < 300:
-                            print("🔊 Adjusting for ambient noise...")
-                            self.recognizer.adjust_for_ambient_noise(source, duration=0.5)
-                            print(f"   (Auto-capping high noise: {self.recognizer.energy_threshold} -> 2000)")
-                            self.recognizer.energy_threshold = 2000
+                    if not self.conversation_active and self.recognizer.energy_threshold < 800:
+                        print(f"🔊 Auto-Adjusting Noise (Current: {int(self.recognizer.energy_threshold)})...")
+                        self.recognizer.adjust_for_ambient_noise(source, duration=0.5)
+                        # Clamp to reasonable limits
+                        if self.recognizer.energy_threshold < 800: self.recognizer.energy_threshold = 800
+                        if self.recognizer.energy_threshold > 3000: self.recognizer.energy_threshold = 3000
                         
-                        # Set minimum threshold higher to ignore background
-                        if self.recognizer.energy_threshold < 300:
-                             self.recognizer.energy_threshold = 300
-                        print(f"   Noise level: {self.recognizer.energy_threshold}\n")
-
                     if self.conversation_active:
-                        print("👂 Listening (conversation mode)...")
+                        print(f"👂 Listening (conversation)... [Thres: {int(self.recognizer.energy_threshold)}]")
                     else:
-                        print("👂 Listening for 'OMNIS'...")
+                        print(f"👂 Listening for 'OMNIS'... [Thres: {int(self.recognizer.energy_threshold)}]")
                     
                     self.is_listening = True # Flag on
                     # shared_state.is_listening = True
