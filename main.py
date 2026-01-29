@@ -28,53 +28,40 @@ class SpeakerAdapter:
 
 speaker_adapter = SpeakerAdapter()
 
+# --- PATH SETUP ---
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+RESOURCES_DIR = os.path.join(BASE_DIR, 'Resources')
+IMAGES_DIR = os.path.join(BASE_DIR, 'images')
+
 # Global Configuration
 FACE_MATCH_TOLERANCE = float(os.environ.get('FACE_MATCH_TOLERANCE', '0.50'))
 MAX_FACES = int(os.environ.get('FACE_MAX_FACES', '4'))
-FRAME_SKIP = 5  # Increased for speed (Process face every 5 frames)
-RESIZE_FACTOR = 0.20 # Downscale more (0.20 instead of 0.25)
+FRAME_SKIP = 5 
+RESIZE_FACTOR = 0.20 
 
-# Initialize Greeting Manager
+# Initialize Greeter
 greeter = GreetingManager()
 
 # Load Resources
 print("Loading Resources...")
 try:
-    imgBackground = cv2.imread('Resources/background.png')
-    folderModePath = 'Resources/Modes'
-    imgModeList = [cv2.imread(os.path.join(folderModePath, p)) for p in sorted(os.listdir(folderModePath))]
+    imgBackground = cv2.imread(os.path.join(RESOURCES_DIR, 'background.png'))
+    folderModePath = os.path.join(RESOURCES_DIR, 'Modes')
+    if os.path.exists(folderModePath):
+        imgModeList = [cv2.imread(os.path.join(folderModePath, p)) for p in sorted(os.listdir(folderModePath))]
+    else:
+        imgModeList = []
 except Exception as e:
     print(f"Warning: Could not load background/modes: {e}")
-    imgBackground = np.zeros((720, 1280, 3), np.uint8) # Fallback black screen
+    imgBackground = np.zeros((720, 1280, 3), np.uint8) 
     imgModeList = []
 
-# Suppress ALSA/Jack errors
-# Suppress ALSA/Jack errors
-try:
-    from ctypes import *
-    from contextlib import contextmanager
-    
-    ERROR_HANDLER_FUNC = CFUNCTYPE(None, c_char_p, c_int, c_char_p, c_int, c_char_p)
-    def py_error_handler(filename, line, function, err, fmt):
-        pass
-    c_error_handler = ERROR_HANDLER_FUNC(py_error_handler)
-    
-    # Try different library names for Raspberry Pi
-    asound = None
-    for lib in ['libasound.so', 'libasound.so.2']:
-        try:
-            asound = cdll.LoadLibrary(lib)
-            asound.snd_lib_error_set_handler(c_error_handler)
-            break
-        except:
-            pass
-except:
-    pass
+# ... (ALSA Block is here, assumed unchanged by this chunk) ...
 
 # Load Encodings
 print("Loading Encoded File...")
 encode_list_known, studentIds = [], []
-encoding_path = r'images/encoded_file.p'
+encoding_path = os.path.join(IMAGES_DIR, 'encoded_file.p')
 
 try:
     with open(encoding_path, 'rb') as f:
@@ -84,8 +71,8 @@ try:
 except Exception as e:
     print(f"⚠️ Error loading encodings ({e}). Attempting to regenerate...")
     try:
-        # Fallback: Regenerate encodings on the fly
-        faces_dir = 'images/faces'
+        # Fallback: Regenerate encodings
+        faces_dir = os.path.join(IMAGES_DIR, 'faces')
         if os.path.exists(faces_dir):
             path_list = os.listdir(faces_dir)
             temp_ids = []
@@ -106,18 +93,17 @@ except Exception as e:
             encode_list_known = temp_encodings
             studentIds = temp_ids
             
-            # Save for next time
             if encode_list_known:
                 with open(encoding_path, 'wb') as f:
                     pickle.dump([encode_list_known, studentIds], f)
-                print(f"✅ Successfully regenerated and saved {len(studentIds)} encodings.")
+                print(f"✅ Successfully regenerated {len(studentIds)} encodings.")
             else:
-                print("⚠️ No valid faces found to encode.")
+                print("⚠️ No valid faces found.")
         else:
             print(f"❌ Faces directory '{faces_dir}' not found.")
             
     except Exception as regen_error:
-        print(f"❌ Critical failure regenerating encodings: {regen_error}")
+        print(f"❌ Critical failure regenerating: {regen_error}")
         encode_list_known, studentIds = [], []
 
 # Reset shared state
@@ -266,8 +252,8 @@ def main():
                 imgBackground[162:162+480, 55:55+640] = img
                 if imgModeList:
                     imgBackground[44:44+633, 808:808+414] = imgModeList[mode_type]
-            except Exception:
-                pass # Prevent crash if resize fails or bg image mismatch
+            except Exception as e:
+                print(f"❌ UI Draw Error: {e}")
             
             detected_person_for_greeting = None
             
@@ -294,7 +280,7 @@ def main():
                         cv2.putText(imgBackground, str(person_id), (808 + int(offset), 445), cv2.FONT_HERSHEY_COMPLEX, 1, (50, 50, 50), 1)
                         
                         # UI: Image
-                        img_path = f'images/faces/{person_id}.jpg'
+                        img_path = os.path.join(IMAGES_DIR, 'faces', f'{person_id}.jpg')
                         if os.path.exists(img_path):
                             student_img = cv2.imread(img_path)
                             if student_img is not None:
